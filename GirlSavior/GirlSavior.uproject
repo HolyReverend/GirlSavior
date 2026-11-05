@@ -1,0 +1,39 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "GirlSavior",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
+		},
+		{
+			"Name": "MCPClientToolset",
+			"Enabled": false
+		},
+		{
+			"Name": "AllToolsets",
+			"Enabled": false
+		},
+		{
+			"Name": "AIModuleToolset",
+			"Enabled": false
+		},
+		{
+			"Name": "PinWright",
+			"Enabled": true,
+			"TargetAllowList": ["Editor"]
+		}
+	]
+}
