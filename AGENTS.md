@@ -18,5 +18,6 @@ At the end of every task, create the required [work reports](Codex/WorkReports.m
 | Add or change gameplay code or Blueprint integration | [C++ and Blueprints](Codex/Cpp.md) |
 | Add or change gameplay data, tuning, or content variants | [Data-driven design](Codex/DataDriven.md) |
 | Create a new folder, file, or asset inside `GirlSavior/` | [Project layout and naming](Codex/ProjectLayout.md) |
+| Find, read, or write game design or technical project documentation | [Project documentation index](Docs/README.md) |
 | Write or update documentation or Codex instructions | [Documentation rules](Codex/Documentation.md) |
 | Work with Git | [Git workflow](Codex/Git.md) |
