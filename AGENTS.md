@@ -10,6 +10,8 @@ Before starting a task, read only the rules and project documents needed for it.
 
 Open the Unreal skill guide only when the task requires direct work on Unreal code, assets, configuration, builds, tests, or the editor. Skip it for game design, documentation, and Codex workflow tasks that do not require such work.
 
+At the end of every task, create the required [work reports](Codex/WorkReports.md). Follow the access rules in that guide when reading or searching reports.
+
 | Task | Read |
 | --- | --- |
 | Inspect, change, build, test, or run the Unreal project | [Unreal project context](Codex/UnrealProject.md) and [Unreal skill routing](Codex/UnrealSkills.md) |

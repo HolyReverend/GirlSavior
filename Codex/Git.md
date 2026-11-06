@@ -39,3 +39,9 @@ refactor(interaction): вынести проверку доступности ц
 build: добавить скрипт сборки редактора
 docs: уточнить правила работы фонаря
 ```
+
+## Work reports for commits
+
+Before each commit, check the [work reports](WorkReports.md) for the areas covered by the staged changes. Read relevant reports to write a more precise commit message, and verify their details against the staged diff. Exclude reports whose filename ends in `_commited.md` from searches and reads.
+
+After the commit succeeds, rename every report that supplied information for its message by adding `_commited` before `.md`. For example, `Report_Codex_2026_11_06_9_30_UpdateGitWorkflow.md` becomes `Report_Codex_2026_11_06_9_30_UpdateGitWorkflow_commited.md`. Leave unused reports under their original names.
