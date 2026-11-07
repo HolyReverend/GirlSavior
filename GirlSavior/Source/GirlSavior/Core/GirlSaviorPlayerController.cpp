@@ -1,6 +1,8 @@
 #include "Core/GirlSaviorPlayerController.h"
 #include "Camera/GirlSaviorPlayerCameraManager.h"
 #include "Characters/GirlSaviorCharacter.h"
+#include "Characters/GirlSaviorAimComponent.h"
+#include "UnrealClient.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedPlayerInput.h"
 #include "Engine/GameViewportClient.h"
@@ -26,14 +28,6 @@ void AGirlSaviorPlayerController::OnPossess(APawn* InPawn)
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 		InputMode.SetHideCursorDuringCapture(false);
 		SetInputMode(InputMode);
-		if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
-		{
-			if (UGameViewportClient* Viewport = LocalPlayer->ViewportClient)
-			{
-				// SetInputMode applies its own capture policy, so override it last.
-				Viewport->SetMouseCaptureMode(EMouseCaptureMode::NoCapture);
-			}
-		}
 	}
 }
 
@@ -94,14 +88,44 @@ void AGirlSaviorPlayerController::ClearMovementIntent()
 	}
 }
 
+bool AGirlSaviorPlayerController::CanUseGameplayInput() const
+{
+	const APawn* ControlledPawn = GetPawn();
+	const ULocalPlayer* LocalPlayer = GetLocalPlayer();
+	const FViewport* Viewport = LocalPlayer && LocalPlayer->ViewportClient ? LocalPlayer->ViewportClient->Viewport : nullptr;
+	return bGameplayInputAvailable && IsLocalController() && ControlledPawn && ControlledPawn->IsLocallyControlled()
+		&& RegisteredMappingContext && RegisteredInputSubsystem.IsValid() && !IsPaused()
+		&& GetViewTarget() == ControlledPawn && Viewport && Viewport->HasFocus() && Viewport->IsForegroundWindow();
+}
+
+void AGirlSaviorPlayerController::ClearAimCursorSample()
+{
+	if (AGirlSaviorCharacter* Hero = Cast<AGirlSaviorCharacter>(GetPawn()))
+	{
+		Hero->GetAimComponent()->ClearCursorSample();
+	}
+}
+
+void AGirlSaviorPlayerController::SetGameplayInputAvailable(bool bAvailable)
+{
+	bGameplayInputAvailable = bAvailable;
+	if (!bAvailable)
+	{
+		ClearMovementIntent();
+		ClearAimCursorSample();
+	}
+}
+
 void AGirlSaviorPlayerController::FlushPressedKeys()
 {
 	Super::FlushPressedKeys();
 	ClearMovementIntent();
+	ClearAimCursorSample();
 }
 
 void AGirlSaviorPlayerController::OnUnPossess()
 {
+	ClearAimCursorSample();
 	ClearMovementIntent();
 	RemoveGameplayInput();
 	Super::OnUnPossess();
@@ -109,6 +133,7 @@ void AGirlSaviorPlayerController::OnUnPossess()
 
 void AGirlSaviorPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	ClearAimCursorSample();
 	ClearMovementIntent();
 	RemoveGameplayInput();
 	Super::EndPlay(EndPlayReason);
@@ -123,10 +148,10 @@ void AGirlSaviorPlayerController::PostProcessInput(float DeltaTime, bool bGamePa
 	const UEnhancedPlayerInput* EnhancedInput = Cast<UEnhancedPlayerInput>(PlayerInput);
 	const AGirlSaviorPlayerCameraManager* Camera =
 		Cast<AGirlSaviorPlayerCameraManager>(PlayerCameraManager);
-	if (bGamePaused || IsMoveInputIgnored() || !IsLocalController() || !PrototypeCharacter
-		|| !PrototypeCharacter->IsLocallyControlled() || !RegisteredMappingContext
+	if (bGamePaused || !CanUseGameplayInput() || IsMoveInputIgnored() || !PrototypeCharacter
 		|| !EnhancedInput || !MoveAction || !Camera)
 	{
+		ClearAimCursorSample();
 		return;
 	}
 

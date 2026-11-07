@@ -19,6 +19,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Prototype|Input")
 	FVector2D GetScreenMoveIntent() const { return ScreenMoveIntent; }
 
+	UFUNCTION(BlueprintPure, Category = "Prototype|Input")
+	bool CanUseGameplayInput() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Prototype|Input")
+	void SetGameplayInputAvailable(bool bAvailable);
+
+	UFUNCTION(BlueprintPure, Category = "Prototype|Input")
+	bool GetGameplayInputAvailable() const { return bGameplayInputAvailable; }
+
 	virtual void FlushPressedKeys() override;
 
 protected:
@@ -37,6 +46,9 @@ private:
 	void RegisterGameplayInput();
 	void RemoveGameplayInput();
 	void ClearMovementIntent();
+	void ClearAimCursorSample();
+
+	bool bGameplayInputAvailable = true;
 
 	FVector2D ScreenMoveIntent = FVector2D::ZeroVector;
 
