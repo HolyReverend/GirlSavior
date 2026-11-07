@@ -10,6 +10,8 @@ Before starting a task, read only the rules and project documents needed for it.
 
 Open the Unreal skill guide only when the task requires direct work on Unreal code, assets, configuration, builds, tests, or the editor. Skip it for game design, documentation, and Codex workflow tasks that do not require such work.
 
+When progress requires a user answer, decision, or manual check, promptly ask a direct question in the chat with concise answer options. Do not remain silently thinking or waiting for unrequested user action. State what is needed and why; for a manual PIE check, give the steps and expected result, then ask whether it passed, failed (with details), or is deferred. Continue independent authorized work while waiting, but leave dependent work pending until the user answers; do not treat silence as confirmation or claim an unperformed check passed.
+
 At the end of every task, create the required [work reports](Codex/WorkReports.md). Follow the access rules in that guide when reading or searching reports.
 
 | Task | Read |
