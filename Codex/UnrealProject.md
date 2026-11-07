@@ -1,6 +1,9 @@
 # Unreal project context
 
-- Engine version confirmed in the editor log on 2026-11-05. The project ran on installed Unreal Engine 5.8.4. [GirlSavior.uproject](../GirlSavior/GirlSavior.uproject) records `EngineAssociation` as `5.8`.
+- Engine version confirmed through live Editor identity on 2026-11-07: installed Unreal Engine 5.8.4. [GirlSavior.uproject](../GirlSavior/GirlSavior.uproject) records `EngineAssociation` as `5.8`.
 - The primary module is `GirlSavior` (`Runtime`). Its [Build.cs](../GirlSavior/Source/GirlSavior/GirlSavior.Build.cs) lists `Core`, `CoreUObject`, `Engine`, `InputCore`, and `EnhancedInput` as public dependencies. The targets are `GirlSavior` (Game) and `GirlSaviorEditor` (Editor).
-- [DefaultInput.ini](../GirlSavior/Config/DefaultInput.ini) selects Enhanced Input. [DefaultEngine.ini](../GirlSavior/Config/DefaultEngine.ini) sets the default game map to `/Engine/Maps/Templates/OpenWorld`.
+- [DefaultInput.ini](../GirlSavior/Config/DefaultInput.ini) selects Enhanced Input. [DefaultEngine.ini](../GirlSavior/Config/DefaultEngine.ini) sets both Editor Startup Map and Game Default Map to `/Game/Maps/Demo.Demo`.
+- [Prototype 1 Stage 0](../Docs/Technical/Prototype%231/Stage00-ProjectPreparation.md) is technically verified on 2026-11-07. `Demo` contains a 2,400 × 2,400 cm floor with its top at Z = 0, simple blocking collision, basic lighting and one PlayerStart at (0, 0, 92). At the end of Stage 0 it used stock GameModeBase and DefaultPawn; Stage 1 subsequently replaced them with the prototype classes listed below.
 - The project enables `ModelingToolsEditorMode` and `PinWright` for the Editor target. For live editor work, read the [PinWright guide](PinWright.md).
+
+- [Prototype 1 Stage 1](../Docs/Technical/Prototype%231/Stage01-CharacterMovement.md) is implemented, technically verified and accepted by the user after manual testing on 2026-11-07. Demo overrides BP_PrototypeGameMode with BP_PrototypeCharacter and BP_PrototypePlayerController. Native feature folders: Core/, Characters/, Camera/. Input assets: Input/Actions/IA_Move and Input/IMC_Gameplay. Ground speed is 500 cm/s; response defaults 0.10 s moving and 0.08 s stopping. Rigid camera: 35° down / 45° yaw, FOV 45°, distance 1600 cm. Stage 2 owns smoothing/framing. Stage 1 documents the editor-only movement capture/evaluator.
