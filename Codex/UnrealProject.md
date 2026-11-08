@@ -1,5 +1,3 @@
 # Unreal project context
 
-Read the [current architecture](../Docs/Technical/Architecture.md) for engine version, modules, file responsibilities, saved asset wiring, and integration contracts. It is the project context used by Unreal skills.
-
-Open the relevant [Prototype 1 stage document](../Docs/Technical/Prototype%231/) when the task needs detailed feature requirements, tuning, acceptance history, or test commands.
+Compatibility entry for references to this file. Use [Architecture.md](../Docs/Technical/Architecture.md) as project context. Reuse it if already read during the task.

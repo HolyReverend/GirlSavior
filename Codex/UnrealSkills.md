@@ -3,7 +3,7 @@
 Open this guide only for work that requires inspecting, changing, building, testing, or running the Unreal project. Skip it for game design, documentation, and Codex workflow tasks that do not require such work. For mixed tasks, use it only for the Unreal portion.
 
 - Select the most specific skill for each subsystem involved and read its installed `SKILL.md`. Add another skill only if its scope also matches the work. Follow related-skill links only when the task calls for them.
-- Use [UnrealProject.md](UnrealProject.md) as GirlSavior's project context when a skill asks for `.agents/ue-project-context.md`. Read it once per task.
+- Use the [current architecture](../Docs/Technical/Architecture.md) when a skill asks for project context. Reuse it if already read. When `ue-project-context` refreshes project facts, update that architecture file.
 
 ## Quod Soler skills
 
