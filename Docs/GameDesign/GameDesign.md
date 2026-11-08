@@ -1,11 +1,12 @@
 # Геймдизайн GirlSavior
 
-- [Концепт игры](ConceptDesign.md)
+Откройте документ нужной темы. Концепт нужен для общего замысла игры, а файл механики — для её конкретных правил.
 
-## Механики
-
-- [Игровая камера](Mechanics/GameCamera.md)
-- [Перемещение персонажа](Mechanics/CharacterMovement.md)
-- [Рывок персонажа](Mechanics/CharacterCharge.md)
-- [Прицеливание персонажа](Mechanics/CharacterAIM.md)
-- [Стрельба персонажа](Mechanics/CharacterShootSystem.md)
+| Тема | Документ |
+| --- | --- |
+| Мир, игровой цикл, экспедиции и убежище | [Концепт игры](ConceptDesign.md) |
+| Ракурс, следование, границы кадра и перекрытия | [Игровая камера](Mechanics/GameCamera.md) |
+| WASD, скорость, инерция и столкновения | [Перемещение персонажа](Mechanics/CharacterMovement.md) |
+| Запуск, движение, защита и перезарядка рывка | [Рывок персонажа](Mechanics/CharacterCharge.md) |
+| Плоскость прицеливания, удержание направления и курсор | [Прицеливание персонажа](Mechanics/CharacterAIM.md) |
+| Серия выстрелов, темп и прерывания | [Стрельба персонажа](Mechanics/CharacterShootSystem.md) |

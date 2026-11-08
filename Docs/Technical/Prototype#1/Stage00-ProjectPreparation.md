@@ -1,5 +1,7 @@
 # Stage 0 — Project Preparation
 
+Completed-stage checklist. Use [current architecture](../Architecture.md) for shared contracts. Read dated audit/execution sections only for historical evidence; a recorded pass is not a current test result.
+
 > During implementation, use the project's `stage-orchestrator` workflow. This stage ends with a buildable Editor target and a repeatable PIE entry point for [Stage 1](Stage01-CharacterMovement.md).
 
 **Goal.** Prepare the existing C++ blank project for the five mechanics in the [prototype plan](ImplementationPlan.md). Use the existing runtime module and designate `Content/Maps/Demo.umap` as the starting level in which all five mechanics will be built and tested.
@@ -8,7 +10,7 @@
 
 | Area | Observed state | Stage 0 decision |
 | --- | --- | --- |
-| Engine and targets | Launcher UE **5.8.4** is installed. `EngineAssociation` is `5.8`. The `GirlSavior` runtime module has its primary module entry point, plus `GirlSavior` (Game) and `GirlSaviorEditor` (Editor) targets. Project source contains the template module and target files. | Build the existing Editor target. Stage 1 will add the first gameplay classes. [Unreal project context](../../../Codex/UnrealProject.md) |
+| Engine and targets | Launcher UE **5.8.4** is installed. `EngineAssociation` is `5.8`. The `GirlSavior` runtime module has its primary module entry point, plus `GirlSavior` (Game) and `GirlSaviorEditor` (Editor) targets. Project source contains the template module and target files. | Build the existing Editor target. Stage 1 will add the first gameplay classes. [Current architecture](../Architecture.md) |
 | Toolchain | UBT found Win64 SDK **10.0.26100.0** and MSVC **14.51.36260**. The Editor target check returned **Succeeded**, **Target is up to date**, with **0 actions**. UBT warned that this compiler is newer than its preferred **14.50.35717**. | Use the installed toolchain for the baseline. A fresh compile of Stage 1 classes will exercise the compiler. Record the actual version and build result if the environment changes. |
 | Input | `EnhancedInput` is already in `GirlSavior.Build.cs`. Its engine plugin is enabled by default and appears in the previous Editor log. `DefaultInput.ini` selects `EnhancedPlayerInput` and `EnhancedInputComponent` and enables key flushing on viewport focus loss. There are no project input assets yet. | Use the existing Enhanced Input setup. Stage 1 owns `IA_Move`, `IMC_Gameplay`, possession, and the controller's gameplay input mode. |
 | Content and maps | The only project content package is `Content/Maps/Demo.umap`. The 2026-11-05 Editor log shows it entered PIE using `GameModeBase`. `GameDefaultMap` currently points to `/Engine/Maps/Templates/OpenWorld`. `EditorStartupMap` has no project override. | Use `Demo.umap` as the working prototype level. Set both startup map fields to `Demo`. Use the stock game framework for the Stage 0 smoke check. |

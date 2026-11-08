@@ -37,7 +37,7 @@ Paths below are relative to `GirlSavior/Source/GirlSavior/`. Entries ending in `
 
 ## Integration contracts
 
-- `CanUseGameplayInput()` is the live gameplay gate. Full suspension uses `SetGameplayInputAvailable(false)`. Movement-only locks leave aiming available.
+- `CanUseGameplayInput()` is the live gameplay gate. Full suspension uses `SetGameplayInputAvailable(false)`. Movement-only locks leave aiming available. Mouse input uses GameAndUI with CaptureDuringMouseDown, a visible cursor, and DoNotLock.
 - Aim ticks in `TG_PostUpdateWork` after camera evaluation and uses absolute viewport pixels with the constrained view rectangle. Consumers use `GetAimDirection()`. Firing must recheck the gameplay gate, check cursor inclusion, and order its tick after aim.
 - Camera tuning belongs in `DA_CameraManager`. After same-pawn teleports, call `RequestFollowSnap()`.
 - Room framing uses room footprint geometry and `WallInset`. Side gaps within the inset can join across overlapping sides. Room authoring supports yaw rotation and positive scale with world-up orientation.
@@ -45,6 +45,5 @@ Paths below are relative to `GirlSavior/Source/GirlSavior/`. Entries ending in `
 
 ## Working requirements
 
-- Follow [ImplementationRules.md](ImplementationRules.md) for C++, Data Assets, skill selection, and acceptance checks.
 - `GirlSavior.Target.cs` builds Game; `GirlSaviorEditor.Target.cs` builds Editor. The descriptor enables GeometryProcessing for runtime room geometry and PinWright for Editor. Read the [PinWright guide](../../Codex/PinWright.md) for live editor work and confirm project identity first.
-- Read only the relevant [Prototype 1 stage document](Prototype%231/) for feature-specific behavior, tuning, and test commands. Match checks to the affected system and record what was actually verified.
+- Use the [documentation index](../README.md) when you need to locate a feature's detailed stage or design document. Match checks to the affected system and record what was actually verified.

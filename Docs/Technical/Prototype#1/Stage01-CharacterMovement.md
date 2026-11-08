@@ -1,5 +1,7 @@
 # Stage 1 — Character Movement Implementation Plan
 
+Completed-stage checklist. Use [current architecture](../Architecture.md) for shared contracts. Read dated audit/execution sections only for historical evidence; a recorded pass is not a current test result.
+
 > During implementation, use the project's `stage-orchestrator` workflow for the stage and this checklist for its acceptance.
 
 **Goal.** Make a locally possessed character move relative to the screen with WASD, short inertia, and standard Unreal walking collision in `Demo`.
@@ -45,7 +47,7 @@
 
 - [x] On the controller, expose `EditDefaultsOnly` `TObjectPtr<UInputAction> MoveAction` and `TObjectPtr<UInputMappingContext> GameplayMappingContext`. After base `OnPossess` succeeds for a locally controlled prototype pawn, register the assigned context at priority **0** on the owning `UEnhancedInputLocalPlayerSubsystem`. Track the context this controller registered and remove it on unpossession and `EndPlay`. Validate the action, context, and subsystem at setup and log a specific diagnostic if any required reference is missing. [Epic Enhanced Input](https://dev.epicgames.com/documentation/unreal-engine/enhanced-input-in-unreal-engine)
 - [x] Override `PostProcessInput(float DeltaTime, bool bGamePaused)` and call `Super`. If the controller has gameplay movement input available, read `UEnhancedPlayerInput::GetActionValue(MoveAction).Get<FVector2D>()` after the mapping pass. Clamp the vector to length one and expose that frame's result through `GetScreenMoveIntent() const`. Send the camera-relative direction to `AddMovementInput(WorldIntent.GetSafeNormal(), WorldIntent.Size())` once for nonzero input. An inactive or canceled action produces zero intent. Reading after the full mapping pass also gives the later dash stage a single place to sample WASD. [Epic PlayerController API](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Engine/APlayerController) · [Epic GetActionValue API](https://dev.epicgames.com/documentation/unreal-engine/API/Plugins/EnhancedInput/UEnhancedPlayerInput/GetActionValue)
-- [x] Treat pause, ignored movement input, or missing local possession as zero input. Clear cached intent and consume any pending pawn input on `FlushPressedKeys` and before unpossession. Call the base methods and keep the existing viewport focus-loss flush setting. Set a visible cursor using `FInputModeGameAndUI` with `DoNotLock` and cursor hiding disabled. Apply `NoCapture` on the viewport client after the input mode, since the input mode sets its own capture policy. Use the same input configuration for movement in the expedition and shelter.
+- [x] Treat pause, ignored movement input, or missing local possession as zero input. Clear cached intent and consume any pending pawn input on `FlushPressedKeys` and before unpossession. Call the base methods and keep the existing viewport focus-loss flush setting. Set a visible cursor using `FInputModeGameAndUI` with `DoNotLock` and cursor hiding disabled. Retain the current [mouse input contract](../Architecture.md#integration-contracts), which Stage 3 updated after the initial Stage 1 delivery. Use the same input configuration for movement in the expedition and shelter.
 
 ## Step 4 — Implement the short-inertia walking response
 

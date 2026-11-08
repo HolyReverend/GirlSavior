@@ -4,8 +4,8 @@ Read this file only for direct work on Unreal code, assets, configuration, build
 
 ## Project approach
 
-- Use Unreal Engine 5.8.4. Prefer C++ for gameplay and use a data-driven approach.
-- Before Unreal work, read the [current architecture](Architecture.md) and [Unreal skill routing](../../Codex/UnrealSkills.md). Load only the skills and linked documents required for the task.
+- Use the engine version recorded in the current architecture. The task-specific guides below define C++/Blueprint responsibilities and data authoring.
+- Before Unreal work, read the [current architecture](Architecture.md) and [Unreal skill routing](../../Codex/UnrealSkills.md) once. Use already loaded context when a skill asks for it. Open only the relevant stage sections or guides. A prerequisite link does not require reading or replaying completed stages.
 
 | Work | Read when needed |
 | --- | --- |

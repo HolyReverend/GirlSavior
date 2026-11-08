@@ -1,5 +1,7 @@
 # Stage 2 — Gameplay Camera Implementation Plan
 
+Completed-stage checklist. Use [current architecture](../Architecture.md) for shared contracts. Read dated audit/execution sections only for historical evidence; a recorded pass is not a current test result.
+
 > During implementation, use the project's `stage-orchestrator` workflow. Use the camera scenario in Step 7 for acceptance.
 
 **Goal.** Keep the hero and the immediate combat space readable in `Demo.umap` while the hero moves, turns, and crosses a doorway. The view keeps one perspective lens and heading across the level.
@@ -10,7 +12,7 @@
 
 ## Step 1 — Keep the camera in the existing gameplay path
 
-- [x] Extend `AGirlSaviorPlayerCameraManager::UpdateViewTargetInternal` to calculate the prototype pawn's `FMinimalViewInfo`. Use the capsule center for framing, with heading from the same `ViewRotation` that `ToWorldMoveIntent` uses. Keep the normal engine path for other view targets. Carry the same view target across room transitions and use the positional blend in Step 2. [Epic camera update API](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Engine/APlayerCameraManager/UpdateViewTargetInternal)
+- [x] Extend `AGirlSaviorPlayerCameraManager::UpdateViewTargetInternal` to calculate the prototype pawn's `FMinimalViewInfo`. Use the capsule center for framing, with heading from the same `ViewRotation` that `ToWorldMoveIntent` uses. Keep the normal engine path for other view targets. Carry the same view target across room transitions and use the connected-room framing in Step 2. [Epic camera update API](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Engine/APlayerCameraManager/UpdateViewTargetInternal)
 - [x] Store the shared camera tuning in `/Game/Data/DataAssets/DA_CameraManager` (`UGirlSaviorCameraSettings`). Expose only its `CameraSettings` reference as an editable camera-manager class default. Create `Content/Blueprints/Core/BP_PrototypeCameraManager.uasset` and set it as the camera manager class in `BP_PrototypePlayerController`. Start with the values below. Tune FOV and distance together in `Demo` and apply the chosen pair to all rooms. Use perspective with `AspectRatio_MaintainXFOV` and an unconstrained viewport aspect ratio. Camera heading comes from the fixed view, and aim offset is zero throughout the prototype. [Epic view settings API](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Engine/FMinimalViewInfo)
 
 | Setting | Initial value |
@@ -22,7 +24,7 @@
 | Foreground fade | **0.15 s** for a full fade or restore, with **20%** coverage at full fade |
 | Nearby warning range | **1000 cm** horizontal radius for occlusion checks |
 
-Native camera code stays in `Source/GirlSavior/Camera/` in the existing runtime module. Keep camera math in C++ and use level actor properties for room and doorway authoring.
+Native camera code stays in `Source/GirlSavior/Camera/` in the existing runtime module. Keep camera math in C++ and use level actor properties for room authoring.
 
 ## Step 2 — Frame connected Room Bounds
 
@@ -69,7 +71,9 @@ Native camera code stays in `Source/GirlSavior/Camera/` in the existing runtime 
 
 - [x] Record the selected FOV and distance, build result, and observations from the route in the Stage 2 Project work report. Carry the final viewport and tick order to Stage 3. Verify the camera at dash speed in Stage 5.
 
-## Execution on 2026-11-07
+## Historical execution on 2026-11-07
+
+The doorway volumes and pivot rectangles described in this section were superseded by the accepted room-adjacency revision. Use Steps 1–7 for the current implementation.
 
 - **State:** accepted on 2026-11-07 after technical checks and the user's manual confirmation: «Пройдено — всё работает». The user authorized Stage 2 in the existing checkout. No commit or push.
 - **Baseline:** Stage 1 accepted. Initial sandbox Git access failed, so affected baseline file hashes were saved to `GirlSavior/Saved/Stage2/Baseline.json`. Read-only Git outside that shell later confirmed main at `8fd94e0fd49bc0b49004280400b9438524d5bc94`. A complete initial dirty-state inventory was unavailable; existing Archive/report folders were preserved.
@@ -101,7 +105,7 @@ Movement runs before the final camera cache. Aim must consume that cache in **TG
 
 Reproduction helpers are editor-only. `GirlSavior.TestCamera <width> <height>` writes the camera check report; `GirlSavior.CameraSnap <X> <Y>` teleports to floor height and requests a camera snap. `Tests/SetupStage02Camera.py` authors only the named Stage 2 layout in Demo; `Tests/VerifyStage02Warning.py` observes trigger/timer ordering asynchronously in PIE.
 
-## Doorway follow correction — 2026-11-07
+## Historical doorway follow correction — 2026-11-07
 
 The user later reported that follow stopped at the free passage. Inspection and a capsule sweep confirmed the physical opening is clear. The authored camera transition was too short: it covered X=1000–1400 while the large-room pivot stops at X=900 and the small-room pivot does not resume following until X=1710. Room clamping therefore produced stationary camera intervals at the approach and exit.
 
@@ -119,7 +123,7 @@ The shared implementation settings (view rotation, follow distance, horizontal F
 
 ## Room adjacency framing revision — accepted (2026-11-08)
 
-User requests room-only camera coverage: touching/overlapping room footprints or gaps strictly smaller than WallInset share camera space, regardless of physical walls/doors. Replace per-room preferred pivot rectangles with a global WallInset (initial300cm) in DA_CameraManager; remove authored Doorway dependencies. Retain external edges, 20% hero priority, fixed lens, follow smoothing and foreground/warning behavior. Partial neighbors must release only their shared boundary coverage. Preserve current unrelated and previously accepted work. Primary owns integration/editor/map; architect provides read-only geometry advice. Technical and manual verification pending.
+User requests room-only camera coverage: touching/overlapping room footprints or gaps strictly smaller than WallInset share camera space, regardless of physical walls/doors. Replace per-room preferred pivot rectangles with a global WallInset (initial300cm) in DA_CameraManager; remove authored Doorway dependencies. Retain external edges, 20% hero priority, fixed lens, follow smoothing and foreground/warning behavior. Partial neighbors must release only their shared boundary coverage. Preserve current unrelated and previously accepted work. Primary owns integration/editor/map; architect provides read-only geometry advice.
 
 Current verification: final closed-editor build passed (`Saved/PinWright/builds/0aaaf55990784698b8b4113f2a42eb3a/build.log`). Geometry automation `GirlSavior.Camera.RoomFraming` passed cleanly (`Saved/PinWright/test-runs/2e21fea46bd74c3eba8927231482d7f0/automation.log`), including touching/overlapping rooms, strict gap thresholds, room order, rotations, holes, narrow-room fallback and a mixed rotated overlap/gap. Room-only PIE camera82/0 and aim58/0 checks at4:3 and16:9 pass. Live floor/geometry/inset invalidation checks all pass (`Saved/Stage2/RoomAdjacency.json`). Cold-restart room-only authoring and WallInset300 were verified (`RoomFramingPersistence.json`). The user explicitly confirmed only overlapping side coverage joins; corner-only proximity stays separate.
 

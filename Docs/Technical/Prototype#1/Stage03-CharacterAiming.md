@@ -1,5 +1,7 @@
 # Stage 3 — Character Aiming Implementation Plan
 
+Completed-stage checklist. Use [current architecture](../Architecture.md) for shared contracts. Read dated audit/execution sections only for historical evidence; a recorded pass is not a current test result.
+
 > During implementation, use the project's `stage-orchestrator` workflow. Use the aiming scenario in Step 6 for acceptance.
 
 **Goal.** In `Demo.umap`, turn the hero horizontally toward the mouse cursor on a plane through the body center. The hero can move in another direction while the view follows, and keeps the last facing near the body or while aim input is unavailable.
@@ -91,5 +93,5 @@ else if planar is usable:
 
 1. Stop the embedded PIE session, then choose **Play → New Editor Window (PIE)** for Demo. Enable `GirlSavior.AimDebug 1` in the console if needed; the cvar lasts only for the Editor session.
 2. Sweep the mouse through the projected capsule center and back through the hysteresis band. Tracking is green; hold is yellow. At 720 px view height the defaults are 7.2 / 10.8 px; other heights scale proportionally. Walk with WASD beneath a stationary cursor, including near the existing wall/floor edge: aim follows the body plane and movement remains camera-relative.
-3. Leave and re-enter the game view, including with LMB held. Facing holds outside and resumes with the current in-view sample. Actual firing is implemented and checked in Stage 4.
+3. Leave and re-enter the game view, including with LMB held. Facing holds outside and resumes with the current in-view sample. Actual firing will be implemented and checked in Stage 4.
 4. Use the console `pause` command, close the console, move the mouse and Alt+Tab away/back. Resume with `pause`. Facing and hold survive interruptions; fresh valid input resumes under the same thresholds. Report pass, failure details, or defer.

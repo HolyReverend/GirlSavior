@@ -4,7 +4,7 @@
 
 **Goal.** In `Demo.umap`, fire one simple test projectile on a ready press and repeat at the configured rate while the button is held. Each shot uses the character's position and current horizontal aim in that frame.
 
-**Prerequisite.** [Stage 3](Stage03-CharacterAiming.md) supplies `CanUseGameplayInput()`, `GetAimDirection()`, `IsCursorInsideGameView()`, and the visible, unlocked `CaptureDuringMouseDown` setup. [Stage 2](Stage02-GameplayCamera.md) supplies the doorway fixture and final camera update. [Stage 5 in the prototype plan](ImplementationPlan.md#5-defensive-dash) will verify uninterrupted firing during dash and extend damage reception with protection.
+**Prerequisite.** [Stage 3](Stage03-CharacterAiming.md) supplies `CanUseGameplayInput()`, `GetAimDirection()`, `IsCursorInsideGameView()`, and the visible, unlocked `CaptureDuringMouseDown` setup. [Stage 2](Stage02-GameplayCamera.md) supplies the doorway fixture and final camera update. [Stage 5](Stage05-DefensiveDash.md) will verify uninterrupted firing during dash and extend damage reception with protection.
 
 **Sources.** [Prototype plan](ImplementationPlan.md) · [Shooting design](../../GameDesign/Mechanics/CharacterShootSystem.md) · [Dash design](../../GameDesign/Mechanics/CharacterCharge.md)
 
