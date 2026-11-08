@@ -3,6 +3,10 @@
 #include "Characters/GirlSaviorCharacter.h"
 #include "Characters/GirlSaviorAimComponent.h"
 #include "UnrealClient.h"
+#include "Combat/GirlSaviorFireComponent.h"
+#include "Combat/GirlSaviorSafeArea.h"
+#include "InputKeyEventArgs.h"
+#include "SceneView.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedPlayerInput.h"
 #include "Engine/GameViewportClient.h"
@@ -23,6 +27,11 @@ void AGirlSaviorPlayerController::OnPossess(APawn* InPawn)
 	if (IsLocalController() && Cast<AGirlSaviorCharacter>(GetPawn()))
 	{
 		RegisterGameplayInput();
+		// Rebuild area permissions on possession, including a pawn spawned inside a zone.
+		SafeAreas.Empty();
+		TArray<AActor*> Overlaps;
+		InPawn->GetOverlappingActors(Overlaps, AGirlSaviorSafeArea::StaticClass());
+		for (AActor* Area : Overlaps) CastChecked<AGirlSaviorSafeArea>(Area)->RegisterPawn(InPawn);
 		bShowMouseCursor = true;
 		FInputModeGameAndUI InputMode;
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
@@ -113,18 +122,22 @@ void AGirlSaviorPlayerController::SetGameplayInputAvailable(bool bAvailable)
 	{
 		ClearMovementIntent();
 		ClearAimCursorSample();
+		CancelFireSeries();
 	}
 }
 
 void AGirlSaviorPlayerController::FlushPressedKeys()
 {
 	Super::FlushPressedKeys();
+	CancelFireSeries();
 	ClearMovementIntent();
 	ClearAimCursorSample();
 }
 
 void AGirlSaviorPlayerController::OnUnPossess()
 {
+	CancelFireSeries();
+	SafeAreas.Empty();
 	ClearAimCursorSample();
 	ClearMovementIntent();
 	RemoveGameplayInput();
@@ -133,6 +146,7 @@ void AGirlSaviorPlayerController::OnUnPossess()
 
 void AGirlSaviorPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	CancelFireSeries();
 	ClearAimCursorSample();
 	ClearMovementIntent();
 	RemoveGameplayInput();
@@ -167,4 +181,72 @@ void AGirlSaviorPlayerController::PostProcessInput(float DeltaTime, bool bGamePa
 	{
 		PrototypeCharacter->AddMovementInput(WorldIntent.GetSafeNormal(), WorldIntent.Size());
 	}
+}
+
+// The down-edge sample uses the same constrained rectangle as aiming, before focus acquisition completes.
+bool AGirlSaviorPlayerController::CanAcceptFirePress(const FInputKeyEventArgs& Params) const
+{
+	const APawn* Hero = GetPawn();
+	const ULocalPlayer* OwningPlayer = GetLocalPlayer();
+	FViewport* Viewport = OwningPlayer && OwningPlayer->ViewportClient ? OwningPlayer->ViewportClient->Viewport : nullptr;
+	if (!bGameplayInputAvailable || !IsLocalController() || !Hero || !Hero->IsLocallyControlled()
+		|| !RegisteredMappingContext || !RegisteredInputSubsystem.IsValid() || IsPaused()
+		|| GetViewTarget() != Hero || !IsFireAllowed() || !Viewport || Params.Viewport != Viewport) return false;
+	FSceneViewProjectionData Projection;
+	float X = 0.f, Y = 0.f;
+	if (!GetMousePosition(X, Y) || !OwningPlayer->GetProjectionData(Viewport, Projection)
+		|| !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
+	const FIntRect Rect = Projection.GetConstrainedViewRect();
+	return Rect.Width() > 0 && Rect.Height() > 0 && X >= Rect.Min.X && Y >= Rect.Min.Y
+		&& X < Rect.Max.X && Y < Rect.Max.Y;
+}
+
+bool AGirlSaviorPlayerController::InputKey(const FInputKeyEventArgs& Params)
+{
+	if (Params.Key == FireButton && FireButton.IsMouseButton())
+	{
+		if (auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn()))
+		{
+			if (Params.Event == IE_Released) Hero->GetFireComponent()->SetFireButtonDown(false);
+			else if ((Params.Event == IE_Pressed || Params.Event == IE_DoubleClick) && CanAcceptFirePress(Params))
+				Hero->GetFireComponent()->SetFireButtonDown(true);
+		}
+	}
+	return Super::InputKey(Params);
+}
+
+void AGirlSaviorPlayerController::CancelFireSeries()
+{
+	if (auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn())) Hero->GetFireComponent()->CancelFireSeries();
+}
+
+bool AGirlSaviorPlayerController::SetPause(bool bPause, FCanUnpause CanUnpauseDelegate)
+{
+	const bool bSucceeded = Super::SetPause(bPause, CanUnpauseDelegate);
+	if (bSucceeded && bPause) CancelFireSeries();
+	return bSucceeded;
+}
+
+bool AGirlSaviorPlayerController::IsFireAllowed() const
+{
+	if (!bFireAllowed) return false;
+	for (const auto& Area : SafeAreas) if (Area.IsValid()) return false;
+	return true;
+}
+
+void AGirlSaviorPlayerController::SetFireAllowed(bool bAllowed)
+{
+	bFireAllowed = bAllowed;
+	if (!bAllowed) CancelFireSeries();
+}
+
+void AGirlSaviorPlayerController::SetSafeAreaActive(AActor* Area, bool bActive)
+{
+	if (!Area) return;
+	if (bActive)
+	{
+		SafeAreas.Add(Area);
+		CancelFireSeries();
+	}
+	else SafeAreas.Remove(Area);
 }

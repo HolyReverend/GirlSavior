@@ -2,6 +2,7 @@
 #include "Characters/GirlSaviorCharacterMovementComponent.h"
 #include "Characters/GirlSaviorAimComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Combat/GirlSaviorFireComponent.h"
 
 AGirlSaviorCharacter::AGirlSaviorCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UGirlSaviorCharacterMovementComponent>(
@@ -9,6 +10,7 @@ AGirlSaviorCharacter::AGirlSaviorCharacter(const FObjectInitializer& ObjectIniti
 {
 	GetCapsuleComponent()->InitCapsuleSize(34.f, 88.f);
 	AimComponent = CreateDefaultSubobject<UGirlSaviorAimComponent>(TEXT("AimComponent"));
+	FireComponent = CreateDefaultSubobject<UGirlSaviorFireComponent>(TEXT("FireComponent"));
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
