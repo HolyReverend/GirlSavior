@@ -5,8 +5,9 @@
 #include "GirlSaviorPlayerCameraManager.generated.h"
 
 class AGirlSaviorCameraRoomBounds;
-class AGirlSaviorCameraDoorway;
+class FGirlSaviorCameraRoomFraming;
 class UPrimitiveComponent;
+class UGirlSaviorCameraSettings;
 struct FSceneViewProjectionData;
 
 UCLASS()
@@ -15,6 +16,7 @@ class GIRLSAVIOR_API AGirlSaviorPlayerCameraManager : public APlayerCameraManage
 	GENERATED_BODY()
 
 public:
+	const UGirlSaviorCameraSettings& GetCameraSettings() const;
 	FVector ToWorldMoveIntent(const FVector2D& ScreenIntent) const;
 	virtual void UpdateCamera(float DeltaTime) override;
 
@@ -27,22 +29,8 @@ protected:
 	virtual void ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Camera")
-	FRotator ViewRotation = FRotator(-35.f, 45.f, 0.f);
-	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Camera", meta = (ClampMin = "1", Units = "cm"))
-	float FollowDistance = 1600.f;
-	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Camera", meta = (ClampMin = "5", ClampMax = "170", Units = "deg"))
-	float ViewFieldOfView = 45.f;
-	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Camera", meta = (ClampMin = "0.15", ClampMax = "0.25", Units = "s"))
-	float FollowSettleSeconds = .20f;
-	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Camera", meta = (ClampMin = "0", ClampMax = "0.49"))
-	FVector2D HeroScreenMargin = FVector2D(.20, .20);
-	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Camera", meta = (ClampMin = "0.001", Units = "s"))
-	float FadeSeconds = .15f;
-	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Camera", meta = (ClampMin = "0", ClampMax = "1"))
-	float MinimumCoverage = .20f;
-	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Camera", meta = (ClampMin = "0", Units = "cm"))
-	float NearbyWarningRange = 1000.f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Prototype|Camera")
+	TObjectPtr<UGirlSaviorCameraSettings> CameraSettings;
 
 private:
 	void RefreshBoundsCache();
@@ -54,7 +42,9 @@ private:
 
 	TArray<TWeakObjectPtr<ULevel>> CachedLevels;
 	TArray<TWeakObjectPtr<AGirlSaviorCameraRoomBounds>> Rooms;
-	TArray<TWeakObjectPtr<AGirlSaviorCameraDoorway>> Doorways;
+	TSharedPtr<FGirlSaviorCameraRoomFraming> RoomFraming;
+	TArray<TArray<FVector2D>> CachedRoomPolygons;
+	double CachedWallInset = -1.;
 	TArray<TWeakObjectPtr<AGirlSaviorCameraRoomBounds>> ActiveRooms;
 	TWeakObjectPtr<AActor> FollowTarget;
 	FVector FollowAnchor = FVector::ZeroVector;

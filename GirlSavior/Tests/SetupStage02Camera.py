@@ -26,14 +26,8 @@ def cube(label, location, scale, material=None, collision=True):
     return a
 cam_a = spawn('Stage2_LargeRoom', unreal.GirlSaviorCameraRoomBounds, (0,0,0))
 cam_a.membership_box.set_box_extent(v(1200,1200,300), False)
-cam_a.set_editor_property('pivot_half_extent',unreal.Vector2D(900,900))
 cam_b = spawn('Stage2_SmallRoom', unreal.GirlSaviorCameraRoomBounds, (1800,0,0))
 cam_b.membership_box.set_box_extent(v(600,500,300), False)
-cam_b.set_editor_property('pivot_half_extent',unreal.Vector2D(90,100))
-door = spawn('Stage2_Doorway',unreal.GirlSaviorCameraDoorway,(1200,0,0))
-door.transition_box.set_box_extent(v(200,220,300),False)
-door.set_editor_property('room_a',cam_a)
-door.set_editor_property('room_b',cam_b)
 cube('Stage2_SmallRoomFloor',(1800,0,-25),(12,10,.5))
 cube('Stage2_PartitionNorth',(1200,710,90),(.4,9.8,1.8))
 cube('Stage2_PartitionSouth',(1200,-710,90),(.4,9.8,1.8))
@@ -54,11 +48,9 @@ cam_b.set_editor_property('warning_actors',[warn])
 occ = spawn('Stage2_Foreground',unreal.EditorAssetLibrary.load_blueprint_class('/Game/Blueprints/Core/BP_PrototypeForegroundOccluder'),(1410,-140,150),45)
 # A distant cosmetic source stays outside the planned approach's frame.
 cube('Stage2_OffscreenSource',(3200,-1200,100),(1,1,2),'/Game/Art/Materials/M_PrototypeCameraImpact',False)
-for a in [cam_a,cam_b,door]:
+for a in [cam_a,cam_b]:
     assert a.is_configuration_valid(), a.get_actor_label()
 for a in sub.get_all_level_actors():
     if a.get_actor_label().startswith('Stage2_'):
         assert unreal.PinWrightPackageLibrary.mark_actor_package_dirty(a)
-assert (door.get_preferred_pivot(v(1000,0,90))-cam_a.get_preferred_pivot(v(1000,0,90))).length()<.001
-assert (door.get_preferred_pivot(v(1400,0,90))-cam_b.get_preferred_pivot(v(1400,0,90))).length()<.001
 print('Stage2 route ready; original Stage1 actors preserved')

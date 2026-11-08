@@ -41,10 +41,7 @@ bool AGirlSaviorCameraRoomBounds::IsConfigurationValid() const
 		return false;
 	}
 	const FVector Extent = MembershipBox->GetUnscaledBoxExtent();
-	return RoomIsFiniteVector(Extent) && Extent.X > 0.0 && Extent.Y > 0.0 && Extent.Z > 0.0
-		&& FMath::IsFinite(PivotCenter.X) && FMath::IsFinite(PivotCenter.Y)
-		&& FMath::IsFinite(PivotHalfExtent.X) && FMath::IsFinite(PivotHalfExtent.Y)
-		&& PivotHalfExtent.X > 0.0 && PivotHalfExtent.Y > 0.0;
+	return RoomIsFiniteVector(Extent) && Extent.X > 0.0 && Extent.Y > 0.0 && Extent.Z > 0.0;
 }
 
 bool AGirlSaviorCameraRoomBounds::ContainsPoint(const FVector& WorldPoint) const
@@ -57,20 +54,4 @@ bool AGirlSaviorCameraRoomBounds::ContainsPoint(const FVector& WorldPoint) const
 	const FVector Extent = MembershipBox->GetUnscaledBoxExtent();
 	return RoomIsFiniteVector(Local) && FMath::Abs(Local.X) <= Extent.X
 		&& FMath::Abs(Local.Y) <= Extent.Y && FMath::Abs(Local.Z) <= Extent.Z;
-}
-
-FVector AGirlSaviorCameraRoomBounds::GetPreferredPivot(const FVector& WorldPoint) const
-{
-	if (!RoomIsFiniteVector(WorldPoint) || !IsConfigurationValid())
-	{
-		return WorldPoint;
-	}
-	const FTransform Transform = GetActorTransform();
-	FVector Local = Transform.InverseTransformPosition(WorldPoint);
-	Local.X = FMath::Clamp(Local.X, PivotCenter.X - PivotHalfExtent.X, PivotCenter.X + PivotHalfExtent.X);
-	Local.Y = FMath::Clamp(Local.Y, PivotCenter.Y - PivotHalfExtent.Y, PivotCenter.Y + PivotHalfExtent.Y);
-	FVector Pivot = Transform.TransformPosition(Local);
-	// Room height never replaces the hero's current framing height.
-	Pivot.Z = WorldPoint.Z;
-	return RoomIsFiniteVector(Pivot) ? Pivot : WorldPoint;
 }

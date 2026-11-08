@@ -1,7 +1,6 @@
 #if WITH_EDITOR
 #include "Camera/GirlSaviorPlayerCameraManager.h"
 #include "Camera/GirlSaviorCameraRoomBounds.h"
-#include "Camera/GirlSaviorCameraDoorway.h"
 #include "Camera/GirlSaviorPrototypeWarningFixture.h"
 #include "Camera/GirlSaviorPrototypeForegroundOccluder.h"
 #include "Characters/GirlSaviorCharacter.h"
@@ -96,25 +95,30 @@ static void Run(const TArray<FString>& Args, UWorld* World)
 		const FMinimalViewInfo& POV = Camera->GetCameraCacheView();
 		Check(FMath::IsNearlyEqual(POV.FOV,45.f) && POV.Rotation.Equals(FRotator(-35,45,0),.001), TEXT("fixed lens and heading"));
 	}
-	AGirlSaviorCameraDoorway* Door = nullptr;
-	for (TActorIterator<AGirlSaviorCameraDoorway> It(World); It; ++It) { Door = *It; break; }
-	Check(Door && Door->IsConfigurationValid(), TEXT("valid authored doorway"));
-	if (Door)
+		// Free doorway approach and exit must not inherit either room's static-anchor interval.
+	Position(FVector(900,100,90), true); Evaluate(0);
+	for (int32 Direction : {1, -1})
 	{
-		Check(Door->GetPreferredPivot(FVector(1000,0,90)).Equals(Door->RoomA->GetPreferredPivot(FVector(1000,0,90)),.001), TEXT("door A endpoint continuity"));
-		Check(Door->GetPreferredPivot(FVector(1400,0,90)).Equals(Door->RoomB->GetPreferredPivot(FVector(1400,0,90)),.001), TEXT("door B endpoint continuity"));
-		Position(FVector(990,0,90), true); Evaluate(0);
-		FVector Previous = Anchor();
-		for (int32 Index = 0; Index <= 52; ++Index)
+		double PreviousX = Anchor().X;
+		for (int32 Step = 1; Step <= 9; ++Step)
 		{
-			const double X = Index <= 26 ? 990. + Index * 10. : 1250. - (Index-26) * 10.;
-			Position(FVector(X,0,90),false); Evaluate(1.f/60);
-			Check(Inset() && FVector::DistXY(Previous, Anchor()) < 100., TEXT("door traversal and reversal continuous"));
-			Previous = Anchor();
+			const double X = Direction > 0 ? 900. + Step*100. : 1800. - Step*100.;
+			FHitResult RouteHit;
+			Hero->SetActorLocation(FVector(X,100,90),true,&RouteHit);
+			Check(!RouteHit.bBlockingHit && FMath::Abs(Hero->GetActorLocation().X-X)<1., TEXT("doorway route physically clear"));
+			for (int32 Frame=0; Frame<21; ++Frame) Evaluate(1.f/60);
+			Check((Anchor().X-PreviousX)*Direction>1. && Inset(), TEXT("free doorway camera advances without room clamp hold"));
+			PreviousX=Anchor().X;
 		}
 	}
+	// The solid partition outside doorway width retains normal room-edge framing.
+	Position(FVector(1000,400,90),true); Evaluate(0);
+	const FVector WallAnchor=Anchor();
+	Position(FVector(1100,400,90),true); Evaluate(0);
+	Check(Anchor().Equals(WallAnchor,.001), TEXT("exposed boundary remainder retains wall inset"));
+
 	Position(FVector(2000,200,90),true); Evaluate(0);
-	Check(Anchor().Equals(FVector(1890,100,90),.001), TEXT("manager applies small room pivot independently"));
+	Check(Anchor().Equals(FVector(2000,200,90),.001), TEXT("shared room region follows inside external inset"));
 	Position(FVector(2300,0,90),true); Evaluate(0);
 	Check(Inset() && Camera->bGameCameraCutThisFrame, TEXT("explicit same pawn snap updates first view and cut"));
 	const FVector Destination = Anchor();
