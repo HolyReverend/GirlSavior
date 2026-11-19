@@ -3,6 +3,7 @@
 
 # Local Codex MCP configuration
 /.codex/config.toml
+/Archive/PinWright/
 
 # Local work reports
 /Reports/

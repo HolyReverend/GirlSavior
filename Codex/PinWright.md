@@ -1,11 +1,11 @@
-# PinWright
+# PinWright archive
 
-Read this guide for live editor work or PinWright setup and troubleshooting. Verify the editor identity before changing assets or levels.
+PinWright is disabled for the Unreal MCP trial. Use the [Unreal MCP guide](UnrealMCP.md) for live editor work. The vendored files and prior local settings are available for a future switch back.
 
 - Vendored from tag `v1.0.0` at commit `20de4b5d6f18e9839aca17cc732fd6ef0a54a260`, with local fixes for Unreal Engine 5.9 Preview covering Cascade, Control Rig, RigVM, and integer formatting. Review those fixes when updating the plugin. [Plugin descriptor](../GirlSavior/Plugins/PinWright/PinWright.uplugin) · [Upstream release](https://github.com/PinWright/pinwright-ue/releases/tag/v1.0.0)
-- The project enables PinWright for the Editor target. The previous `MCPClientToolset`, `AllToolsets`, and `AIModuleToolset` entries are disabled in [GirlSavior.uproject](../GirlSavior/GirlSavior.uproject).
-- The Editor-only GameFeatures dependency uses a `GameFeatureData` Asset Manager rule with `NeverCook`. [DefaultGame.ini](../GirlSavior/Config/DefaultGame.ini)
-- Open Codex at the trusted `GirlSaviorProject` workspace root. Set up a local `.codex/config.toml` to start the plugin's stdio proxy with the Python bundled with the installed project engine. The proxy selects the editor and build engine from `EngineAssociation` in `GirlSavior.uproject`. If an existing setup still points to an older Unreal installation for Python, update that path before removing the older engine. The editor writes the local port and authentication files under `GirlSavior/Saved/PinWright/`. Keep their contents out of logs and documentation.
-- After adding or changing the config, restart the Codex session and open GirlSavior in Unreal Editor. Read `GirlSavior/Saved/PinWright/wiki/index.md`, then only the relevant method pages. Run `system.identity` and check the project path before the first edit. If the gateway starts before the editor is ready, wait for PinWright to report readiness in the editor log and retry.
+- Local snapshots are under `Archive/PinWright/`. They contain the former workspace MCP config, project descriptor, and Editor-only `GameFeatureData` Asset Manager rule. The editor generates gateway credentials when it starts.
+- To switch back, close the editor and restore the former MCP and PinWright plugin entries from `GirlSavior.uproject.json`. Restore the rule from `DefaultGame-PinWright.ini`. For a PinWright-only restart, remove the trial port and set `bAutoStartServer=False` in the native MCP section of `DefaultEditorPerProjectUserSettings.ini`. Check for a conflicting override in `Saved/Config/WindowsEditor/EditorPerProjectUserSettings.ini`. The engine enables native MCP by default.
+- Replace the active Unreal MCP table in the root `.codex/config.toml` with the archived PinWright table. Keep unrelated config entries. Use the installed engine's Python path if the archived one is unavailable. Rebuild the Editor target and reload Codex after opening GirlSavior.
+- For verification, read `GirlSavior/Saved/PinWright/wiki/index.md` and run `system.identity` against the expected project before editing.
 
 For installation or updates, follow the [PinWright agent install guide](https://github.com/PinWright/pinwright-ue/blob/master/AGENT_INSTALL.md).

@@ -32,10 +32,32 @@
 		},
 		{
 			"Name": "PinWright",
+			"Enabled": false
+		},
+		{
+			"Name": "ModelContextProtocol",
 			"Enabled": true,
-			"TargetAllowList": [
-				"Editor"
-			]
+			"TargetAllowList": ["Editor"]
+		},
+		{
+			"Name": "EditorToolset",
+			"Enabled": true,
+			"TargetAllowList": ["Editor"]
+		},
+		{
+			"Name": "BlueprintToolsets",
+			"Enabled": true,
+			"TargetAllowList": ["Editor"]
+		},
+		{
+			"Name": "AutomationTestToolset",
+			"Enabled": true,
+			"TargetAllowList": ["Editor"]
+		},
+		{
+			"Name": "ConsoleToolset",
+			"Enabled": true,
+			"TargetAllowList": ["Editor"]
 		},
 		{
 			"Name": "GeometryProcessing",
