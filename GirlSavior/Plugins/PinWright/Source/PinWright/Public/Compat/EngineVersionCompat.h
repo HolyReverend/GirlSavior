@@ -214,17 +214,22 @@ enum EAllowShrinking : uint8 { No = 0, Yes = 1 };
 // FRigTransformElement::GetDirtyState() and FRigControlElement::GetOffsetDirtyState() arrived in
 // UE 5.5, when the per-transform dirty flags moved out of FRigCurrentAndInitialTransform into a
 // parallel FRigCurrentAndInitialDirtyState. Through 5.4 the flags live on the transform itself
-// and are read with GetDirtyFlag(). Both spellings answer "is this one transform dirty" for a
-// single ERigTransformType. Requires Rigs/RigHierarchyElements.h at the call site.
-#if UE_VERSION_NEWER_THAN_OR_EQUAL(5, 5, 0)
-#define MCP_RIG_TRANSFORM_IS_DIRTY(Element, TransformType) \
+// and are read with GetDirtyFlag(). From 5.9 the dirty flags are resolved through the owning
+// hierarchy's storage. Requires the hierarchy and element headers at the call site.
+#if UE_VERSION_NEWER_THAN_OR_EQUAL(5, 9, 0)
+#define MCP_RIG_TRANSFORM_IS_DIRTY(Hierarchy, Element, TransformType) \
+    ((Element)->GetDirtyState().IsDirty((Hierarchy)->GetRigHierarchyStorage(), TransformType))
+#define MCP_RIG_CONTROL_OFFSET_IS_DIRTY(Hierarchy, ControlElement, TransformType) \
+    ((ControlElement)->GetOffsetDirtyState().IsDirty((Hierarchy)->GetRigHierarchyStorage(), TransformType))
+#elif UE_VERSION_NEWER_THAN_OR_EQUAL(5, 5, 0)
+#define MCP_RIG_TRANSFORM_IS_DIRTY(Hierarchy, Element, TransformType) \
     ((Element)->GetDirtyState().IsDirty(TransformType))
-#define MCP_RIG_CONTROL_OFFSET_IS_DIRTY(ControlElement, TransformType) \
+#define MCP_RIG_CONTROL_OFFSET_IS_DIRTY(Hierarchy, ControlElement, TransformType) \
     ((ControlElement)->GetOffsetDirtyState().IsDirty(TransformType))
 #else
-#define MCP_RIG_TRANSFORM_IS_DIRTY(Element, TransformType) \
+#define MCP_RIG_TRANSFORM_IS_DIRTY(Hierarchy, Element, TransformType) \
     ((Element)->Pose.GetDirtyFlag(TransformType))
-#define MCP_RIG_CONTROL_OFFSET_IS_DIRTY(ControlElement, TransformType) \
+#define MCP_RIG_CONTROL_OFFSET_IS_DIRTY(Hierarchy, ControlElement, TransformType) \
     ((ControlElement)->Offset.GetDirtyFlag(TransformType))
 #endif
 

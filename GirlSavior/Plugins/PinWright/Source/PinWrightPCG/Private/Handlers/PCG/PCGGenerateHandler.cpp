@@ -497,13 +497,14 @@ REGISTER_RPC_HANDLER("pcg.generate", "pcg",
         if (Elapsed - State->LastProgressSeconds >= ProgressIntervalSeconds)
         {
             State->LastProgressSeconds = Elapsed;
+            const int64 ElapsedWholeSeconds = FMath::RoundToInt64(Elapsed);
             TSharedPtr<FJsonObject> Progress = MakeShared<FJsonObject>();
-            Progress->SetNumberField(TEXT("elapsedSeconds"), FMath::RoundToInt(Elapsed));
+            Progress->SetNumberField(TEXT("elapsedSeconds"), ElapsedWholeSeconds);
             Progress->SetBoolField(TEXT("generating"), Comp->IsGenerating());
             const bool bStillRunning = FPluginState::Get().GetJobRegistry().RecordProgress(
                 State->TicketId,
-                FString::Printf(TEXT("PCG generation on '%s' running, %ds elapsed"),
-                    *ActorLabel, FMath::RoundToInt(Elapsed)),
+                FString::Printf(TEXT("PCG generation on '%s' running, %llds elapsed"),
+                    *ActorLabel, ElapsedWholeSeconds),
                 Progress, /*bBypassRateLimit=*/true);
             if (!bStillRunning)
             {

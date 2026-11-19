@@ -875,7 +875,11 @@ FString EmitGraphBody(URigVMGraph* Graph, int32 Depth, TArray<FString>& OutWarni
             // package names of the function ref's owning asset and the host.
             FString HostPath;
             const FString OwningAssetPath = Node->GetPackage() ? Node->GetPackage()->GetPathName() : FString();
+#if UE_VERSION_NEWER_THAN_OR_EQUAL(5, 9, 0)
+            const FString HostAssetPath = Header.LibraryPointer.GetHostPath().ToString();
+#else
             const FString HostAssetPath = Header.LibraryPointer.HostObject.ToString();
+#endif
             const FString HostPkg = FPackageName::ObjectPathToPackageName(HostAssetPath);
             if (!HostPkg.IsEmpty() && HostPkg != OwningAssetPath)
             {

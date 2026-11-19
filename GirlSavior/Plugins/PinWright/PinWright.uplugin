@@ -87,6 +87,12 @@
       "TargetAllowList": ["Editor"]
     },
     {
+      "Name": "Cascade",
+      "Enabled": true,
+      "Optional": true,
+      "TargetAllowList": ["Editor"]
+    },
+    {
       "Name": "Chooser",
       "Enabled": true,
       "Optional": true,

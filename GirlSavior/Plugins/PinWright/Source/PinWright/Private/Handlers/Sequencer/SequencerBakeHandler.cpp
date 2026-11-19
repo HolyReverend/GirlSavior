@@ -1142,16 +1142,16 @@ REGISTER_RPC_HANDLER("sequencer.bake_control_space", "sequencer",
             const FRigTransformElement* Element =
                 Hierarchy->Find<FRigTransformElement>(TransformKey);
             if (Element &&
-                MCP_RIG_TRANSFORM_IS_DIRTY(Element, ERigTransformType::CurrentLocal) &&
-                MCP_RIG_TRANSFORM_IS_DIRTY(Element, ERigTransformType::CurrentGlobal))
+                MCP_RIG_TRANSFORM_IS_DIRTY(Hierarchy, Element, ERigTransformType::CurrentLocal) &&
+                MCP_RIG_TRANSFORM_IS_DIRTY(Hierarchy, Element, ERigTransformType::CurrentGlobal))
             {
                 InvalidElement = Element;
                 break;
             }
         }
         const bool bOffsetInvalid =
-            MCP_RIG_CONTROL_OFFSET_IS_DIRTY(ControlElement, ERigTransformType::CurrentLocal) &&
-            MCP_RIG_CONTROL_OFFSET_IS_DIRTY(ControlElement, ERigTransformType::CurrentGlobal);
+            MCP_RIG_CONTROL_OFFSET_IS_DIRTY(Hierarchy, ControlElement, ERigTransformType::CurrentLocal) &&
+            MCP_RIG_CONTROL_OFFSET_IS_DIRTY(Hierarchy, ControlElement, ERigTransformType::CurrentGlobal);
         if (!InvalidElement && !bOffsetInvalid)
         {
             return true;

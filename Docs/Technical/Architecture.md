@@ -1,6 +1,6 @@
 # Current project architecture
 
-Verified on 2026-11-08 against source, configuration, and saved editor assets. Unreal Engine 5.8.4. Current runtime systems cover movement, camera framing, foreground fading, mouse aiming, and prototype projectile shooting.
+The project targets Unreal Engine 5.9.0 Preview 1 (Epic Games Launcher, CL 60351404). The runtime systems below cover movement, camera framing, foreground fading, mouse aiming, and prototype projectile shooting. The gameplay architecture was last verified against source, configuration, and saved editor assets on 2026-11-08.
 
 ## Entry points and assets
 
@@ -51,5 +51,6 @@ Paths below are relative to `GirlSavior/Source/GirlSavior/`. Entries ending in `
 
 ## Working requirements
 
-- `GirlSavior.Target.cs` builds Game; `GirlSaviorEditor.Target.cs` builds Editor. The descriptor enables GeometryProcessing for runtime room geometry and PinWright for Editor. Read the [PinWright guide](../../Codex/PinWright.md) for live editor work and confirm project identity first.
+- Use MSVC 14.50.35723 or later in the 14.50 series for the Win64 build. UE 5.9 Preview 1 rejects MSVC 14.51. Visual Studio 2026 lists the compatible compiler under **Individual components** as **MSVC Build Tools v14.50 for x64/x86**.
+- `GirlSavior.Target.cs` builds Game with build settings V8 to match the installed engine's shared UnrealGame target. `GirlSaviorEditor.Target.cs` builds Editor and includes the project automation tests. The descriptor enables GeometryProcessing for runtime room geometry and PinWright for Editor. Read the [PinWright guide](../../Codex/PinWright.md) for live editor work and confirm project identity first.
 - Use the [documentation index](../README.md) when you need to locate a feature's detailed stage or design document. Match checks to the affected system and record what was actually verified.

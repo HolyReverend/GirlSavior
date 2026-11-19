@@ -442,8 +442,8 @@ REGISTER_RPC_HANDLER("image.annotate", "image",
             {
                 // Labels ride the TOP edge, never the field - a label in the middle of the frame
                 // hides exactly the content the grid exists to let a reader locate.
-                const FString Text = FString::Printf(TEXT("%s %d"),
-                    AxisName(Geo.Grid.Axes.ScreenXAxis), FMath::RoundToInt(Coord));
+                const FString Text = FString::Printf(TEXT("%s %lld"),
+                    AxisName(Geo.Grid.Axes.ScreenXAxis), FMath::RoundToInt64(Coord));
                 const FIntRect Plate = MeasureLabelPlate(Text, PixelX + 2, 2, LabelStyle);
                 if (Plate.Min.X >= NextLabelX && Plate.Max.X <= Canvas.Width)
                 {
@@ -471,8 +471,8 @@ REGISTER_RPC_HANDLER("image.annotate", "image",
 
             if (bGridLabels)
             {
-                const FString Text = FString::Printf(TEXT("%s %d"),
-                    AxisName(Geo.Grid.Axes.ScreenYAxis), FMath::RoundToInt(Coord));
+                const FString Text = FString::Printf(TEXT("%s %lld"),
+                    AxisName(Geo.Grid.Axes.ScreenYAxis), FMath::RoundToInt64(Coord));
                 const FIntRect Plate = MeasureLabelPlate(Text, 2, PixelY + 2, LabelStyle);
                 if (Plate.Min.Y >= NextLabelY && Plate.Max.Y <= Canvas.Height)
                 {

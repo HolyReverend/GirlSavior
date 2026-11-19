@@ -149,12 +149,12 @@ bool FPwModelTransformPivotDocTest::RunTest(const FString& Parameters)
 
     // The worked number is FORMATTED FROM THE MEASUREMENT, never typed in: a text quoting a
     // displacement the op does not produce fails here exactly as a text that quotes none.
-    const FString MeasuredDisplacement = FString::Printf(TEXT("%d uu"), FMath::RoundToInt(Displacement));
-    TestTrue(FString::Printf(TEXT("and quotes the measured displacement %s for the z=%d, %d-degree case. Text: %s"),
-            *MeasuredDisplacement, FMath::RoundToInt(TransformPivotDocsTest_Height),
-            FMath::RoundToInt(TransformPivotDocsTest_TiltDegrees), *RotateDoc),
+    const int64 RoundedHeight = FMath::RoundToInt64(TransformPivotDocsTest_Height);
+    const FString MeasuredDisplacement = FString::Printf(TEXT("%lld uu"), FMath::RoundToInt64(Displacement));
+    TestTrue(FString::Printf(TEXT("and quotes the measured displacement %s for the z=%lld, %lld-degree case. Text: %s"),
+            *MeasuredDisplacement, RoundedHeight, FMath::RoundToInt64(TransformPivotDocsTest_TiltDegrees), *RotateDoc),
         RotateDoc.Contains(MeasuredDisplacement)
-            && RotateDoc.Contains(FString::Printf(TEXT("%d"), FMath::RoundToInt(TransformPivotDocsTest_Height))));
+            && RotateDoc.Contains(FString::Printf(TEXT("%lld"), RoundedHeight)));
 
     // `scale=` carries the same lever arm for the same reason - one FTransform, one origin - and
     // it is the half of the trap nobody goes looking for.

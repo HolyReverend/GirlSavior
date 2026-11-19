@@ -108,6 +108,12 @@ public class PinWright : ModuleRules
             "WebBrowserWidget", "WebBrowser"
         });
 
+        // UE 5.9 moved the legacy particle classes used by the asset dump out of Engine.
+        if (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion >= 9)
+        {
+            PrivateDependencyModuleNames.Add("CascadeRuntime");
+        }
+
         // FUniversalObjectLocator / FUniversalObjectLocatorFragment back a possessable's binding
         // locators. MovieScene exposes them through its headers, so a per-file compile succeeds
         // without this and only the link reports the missing symbols.
