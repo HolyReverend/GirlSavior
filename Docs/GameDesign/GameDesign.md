@@ -9,6 +9,9 @@
 
 ## Управление
 
+- [Главное меню и пауза](Mechanics/Interface/GameMenus.md) — новая игра, продолжение, настройки и выход.
+- [Интерфейс вылазки](Mechanics/Interface/ExpeditionHUD.md) — здоровье, поддержка, цель, добыча и указатели выхода.
+- [Итоги вылазки](Mechanics/Interface/ExpeditionResults.md) — результат цели, опыт, добыча и открытия после возвращения.
 - [Игровая камера](Mechanics/Player/GameCamera.md) — ракурс, следование, границы кадра и перекрытия.
 - [Перемещение персонажа](Mechanics/Player/CharacterMovement.md) — WASD, скорость, инерция и столкновения.
 - [Рывок персонажа](Mechanics/Player/CharacterCharge.md) — запуск, движение, защита и перезарядка рывка.
@@ -23,12 +26,17 @@
 
 - [Каталог героинь](Mechanics/Heroines/Heroines.md) — карточки, миры, способности и сочетания.
 - [Поддержка героинь](Mechanics/Heroines/HeroineSupport.md) — выбор состава, автоматические срабатывания и ранги.
-- [Отношения с героинями](Mechanics/Heroines/HeroineRelationships.md) — личные истории и романтические линии.
+- [Личные просьбы](Mechanics/Heroines/SupportRequests.md) — поиск предмета, первое улучшение и дополнительная романтическая сцена.
+- [Отношения с героинями](Mechanics/Heroines/HeroineRelationships.md) — знакомство, доверие, дружба и романтические линии.
 
 ## Лагерь
 
 - [Лагерь](Mechanics/Camp/CampHub.md) — подготовка, занятия между вылазками и роли героинь.
 - [Постройки лагеря](Mechanics/Camp/ShelterDevelopment.md) — уровни зданий, условия, цены и источники ресурсов.
+- [Прогулка и взаимодействие](Mechanics/Camp/CampInteraction.md) — 3D-площадка, подсказки и панели объектов.
+- [Интерфейс отношений](Mechanics/Camp/RelationshipInterface.md) — поиск сцен и отслеживание историй.
+- [Режим визуальной новеллы](Mechanics/Camp/VisualNovel.md) — чтение, история реплик, авто, пропуск, сохранение и выход.
+- [Стол экспедиций и подготовка](Mechanics/Camp/ExpeditionBoard.md) — выбор миссии, оружие и карточки героинь.
 
 ## Экспедиции
 
@@ -45,6 +53,8 @@
 - [Волны противников](Mechanics/Encounters/EnemyWaves.md) — темп подкреплений, лимиты и появление за кадром.
 
 ## Прогрессия
+
+- [Система сохранений](Mechanics/Progression/SaveProgress.md) — запись прогресса лагеря, вылазки и ВН, выход и продолжение.
 
 - [Прокачка героя](Mechanics/Progression/HeroProgression.md) — уровень, пассивки, ранги оружия и предел собственной силы.
 - [Ресурсы для прокачки](Mechanics/Progression/UpgradeResources.md) — источники материалов и стоимость рангов.

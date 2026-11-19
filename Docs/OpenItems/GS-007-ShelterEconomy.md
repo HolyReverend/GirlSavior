@@ -6,7 +6,7 @@
 
 ## Что открыто
 
-Описаны доступные объекты лагеря, отдельные строительные ресурсы и четыре типа вылазок. Проверить переходы между лагерем и Бездной, доступность построек и темп их открытия. [Лагерь](../GameDesign/Mechanics/Camp/CampHub.md) · [Постройки](../GameDesign/Mechanics/Camp/ShelterDevelopment.md) · [Экспедиции](../GameDesign/Mechanics/Expeditions/Expeditions.md)
+Описаны доступные объекты лагеря, отдельные строительные ресурсы и четыре типа вылазок. Проверить переходы между лагерем и Бездной, доступность построек и темп их открытия. [Лагерь](../GameDesign/Mechanics/Camp/CampHub.md) · [Постройки](../GameDesign/Mechanics/Camp/ShelterDevelopment.md) · [Экспедиции](../GameDesign/Mechanics/Expeditions/Expeditions.md) · [Проверка интерфейса](GS-019-CampInteractionPlaytest.md)
 
 ## Условие закрытия
 
