@@ -4,12 +4,12 @@ At the end of each task, create a short Markdown report for each area it affecte
 
 | Area | Folder from the workspace root | WorkType |
 | --- | --- | --- |
-| Unreal project code, assets, configuration, and builds | `GirlSavior/Reports/` | `Project` |
-| Game design and technical documentation | `Docs/Reports/` | `Doc` |
-| Codex instructions and workflow, including root `AGENTS.md` | `Codex/Reports/` | `Codex` |
+| Unreal project code, assets, configuration, and builds | `Reports/Project/` | `Project` |
+| Game design and technical documentation | `Reports/Docs/` | `Doc` |
+| Codex instructions and workflow, including root `AGENTS.md` | `Reports/Codex/` | `Codex` |
 
 Use `Report_<WorkType>_<yyyy_MM_dd_H_mm>_<JobName>.md` with the local task completion time in Europe/Moscow. Use a short English PascalCase job name and an hour without a leading zero. Example `Report_Doc_2026_06_11_8_22_DesignAddMovement.md`. If the name already exists, use a more specific job name and create a new file.
 
 Record what was done, which files or assets changed, and the checks actually run with their results. Note any outstanding work. Write game design reports in plain Russian and other reports in clear English. Report writing belongs to the task it describes. Creating a report alone does not activate the Unreal, documentation-index, or Git routes. Read this guide directly when writing reports.
 
-Exclude report folders from routine searches and context gathering. Read or search reports only when the user explicitly asks or when preparing a commit under the [Git workflow](Git.md). Apply that guide's exclusion for reports already marked as used.
+Create the matching folder if it is missing. Reports are local files under the root `Reports/`, which Git ignores. Exclude that tree from routine searches and context gathering. Read or search reports only when the user explicitly asks or when preparing a commit under the [Git workflow](Git.md). Apply that guide's exclusion for reports already marked as used.

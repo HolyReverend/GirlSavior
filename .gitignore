@@ -4,6 +4,9 @@
 # Local Codex MCP configuration
 /.codex/config.toml
 
+# Local work reports
+/Reports/
+
 # Compiled Object files
 *.slo
 *.lo
