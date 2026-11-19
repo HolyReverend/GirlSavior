@@ -6,7 +6,7 @@
 
 **Prerequisite.** [Stage 3](Stage03-CharacterAiming.md) supplies `CanUseGameplayInput()`, `GetAimDirection()`, `IsCursorInsideGameView()`, and the visible, unlocked `CaptureDuringMouseDown` setup. [Stage 2](Stage02-GameplayCamera.md) supplies the doorway fixture and final camera update. [Stage 5](Stage05-DefensiveDash.md) will verify uninterrupted firing during dash and extend damage reception with protection.
 
-**Sources.** [Prototype plan](ImplementationPlan.md) · [Shooting design](../../GameDesign/Mechanics/CharacterShootSystem.md) · [Dash design](../../GameDesign/Mechanics/CharacterCharge.md)
+**Sources.** [Prototype plan](ImplementationPlan.md) · [Shooting design](../../GameDesign/Mechanics/Weapons/CharacterShootSystem.md) · [Dash design](../../GameDesign/Mechanics/Player/CharacterCharge.md)
 
 ## Step 1 — Route the configured fire button
 

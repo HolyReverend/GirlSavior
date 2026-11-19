@@ -8,7 +8,7 @@ Completed-stage checklist. Use [current architecture](../Architecture.md) for sh
 
 **Prerequisite.** [Stage 1](Stage01-CharacterMovement.md) delivers `AGirlSaviorPlayerCameraManager`, the screen-relative WASD basis, and a playable greybox in `Content/Maps/Demo.umap`. This stage extends that camera. Stage 3 consumes the resulting frame for aiming, and Stage 5 exercises follow at dash speed.
 
-**Sources.** [Prototype plan](ImplementationPlan.md) · [Camera design](../../GameDesign/Mechanics/GameCamera.md) · [Aim design](../../GameDesign/Mechanics/CharacterAIM.md) · [Project layout](../../../Codex/ProjectLayout.md)
+**Sources.** [Prototype plan](ImplementationPlan.md) · [Camera design](../../GameDesign/Mechanics/Player/GameCamera.md) · [Aim design](../../GameDesign/Mechanics/Player/CharacterAIM.md) · [Project layout](../../../Codex/ProjectLayout.md)
 
 ## Step 1 — Keep the camera in the existing gameplay path
 

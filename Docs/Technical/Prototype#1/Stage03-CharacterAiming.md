@@ -8,7 +8,7 @@ Completed-stage checklist. Use [current architecture](../Architecture.md) for sh
 
 **Prerequisites.** [Stage 1](Stage01-CharacterMovement.md) supplies the possessed character, screen-relative WASD, and a fixed body reference at the capsule center. [Stage 2](Stage02-GameplayCamera.md) supplies the final gameplay POV and viewport projection. Stage 4 reads the current facing for projectile launch. Stage 5 exercises aim while dashing.
 
-**Sources.** [Prototype plan](ImplementationPlan.md) · [Aim design](../../GameDesign/Mechanics/CharacterAIM.md) · [Shooting design](../../GameDesign/Mechanics/CharacterShootSystem.md)
+**Sources.** [Prototype plan](ImplementationPlan.md) · [Aim design](../../GameDesign/Mechanics/Player/CharacterAIM.md) · [Shooting design](../../GameDesign/Mechanics/Weapons/CharacterShootSystem.md)
 
 ## Step 1 — Add the aim component and define its ownership
 

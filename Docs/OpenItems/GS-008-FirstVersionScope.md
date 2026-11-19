@@ -12,4 +12,4 @@
 
 При планировании первой версии зафиксировать её состав и минимальный объём личных историй. Проверить зависимости от спасения, убежища и визуальных материалов.
 
-[Концепт игры](../GameDesign/ConceptDesign.md) · [Отношения с героинями](../GameDesign/Mechanics/HeroineRelationships.md)
+[Концепт игры](../GameDesign/ConceptDesign.md) · [Отношения с героинями](../GameDesign/Mechanics/Heroines/HeroineRelationships.md)

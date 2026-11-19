@@ -12,7 +12,7 @@ Completed-stage checklist. Use [current architecture](../Architecture.md) for sh
 
 **Prerequisite.** [Stage 0](Stage00-ProjectPreparation.md) provides the verified Editor target and the saved `Demo` map with a floor, basic lighting, and `PlayerStart`.
 
-**Sources.** [Prototype plan](ImplementationPlan.md) · [Movement design](../../GameDesign/Mechanics/CharacterMovement.md) · [Camera design](../../GameDesign/Mechanics/GameCamera.md) · [C++ and Blueprints](../../../Codex/Cpp.md) · [Data-driven design](../../../Codex/DataDriven.md)
+**Sources.** [Prototype plan](ImplementationPlan.md) · [Movement design](../../GameDesign/Mechanics/Player/CharacterMovement.md) · [Camera design](../../GameDesign/Mechanics/Player/GameCamera.md) · [C++ and Blueprints](../../../Codex/Cpp.md) · [Data-driven design](../../../Codex/DataDriven.md)
 
 ## Step 1 — Set up the native classes
 

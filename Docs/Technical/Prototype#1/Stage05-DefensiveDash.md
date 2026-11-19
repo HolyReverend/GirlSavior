@@ -6,7 +6,7 @@
 
 **Prerequisites.** [Stage 1](Stage01-CharacterMovement.md) supplies the movement component and screen-space input. [Stage 2](Stage02-GameplayCamera.md) supplies camera follow and the doorway. [Stage 3](Stage03-CharacterAiming.md) supplies the gameplay control gate and aim. [Stage 4](Stage04-CharacterShooting.md) supplies ordered input edges, the area permission, the firing series, and typed damage reception.
 
-**Sources.** [Prototype plan](ImplementationPlan.md) · [Dash design](../../GameDesign/Mechanics/CharacterCharge.md) · [Movement design](../../GameDesign/Mechanics/CharacterMovement.md)
+**Sources.** [Prototype plan](ImplementationPlan.md) · [Dash design](../../GameDesign/Mechanics/Player/CharacterCharge.md) · [Movement design](../../GameDesign/Mechanics/Player/CharacterMovement.md)
 
 ## Step 1 — Add the dash mode and tuning
 
