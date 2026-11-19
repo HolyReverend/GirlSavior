@@ -131,4 +131,6 @@ Corrections during verification: normalized bridge winding; removed redundant co
 
 Manual acceptance of the new adjacency rule passed on 2026-11-08: the user confirmed the supplied shared-boundary/exterior-edge route with «Пройдено — работает как нужно». The physical doorway and all wall collision remain; only camera Doorway volumes/native classes and per-room preferred pivot rectangles were removed. GeometryProcessing is a runtime dependency for union/offset operations; packaged build is NotRun.
 
+[Packaged camera verification](../../OpenItems/GS-010-PackagedCamera.md)
+
 Final physical route check without camera Doorway actors: `Saved/Stage2/RoomOnlyAfter.json` passed all19 real-frame samples after the final build. The five live cache/inset checks were repeated successfully. Reviewed actual 4:3 game-view capture `Saved/Screenshots/Stage2_SharedRoomBounds_4x3.png`. Saved WallInset300 after test restoration; final editor readback showed zero unsaved packages and zero lingering Python callbacks before manual handoff.

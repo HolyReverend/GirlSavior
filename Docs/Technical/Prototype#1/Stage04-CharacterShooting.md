@@ -92,3 +92,5 @@ else if now >= nextShotTime and (buttonHeld or readyPress):
 - Automatic lifetime expiry was not observed; configured lifetime was verified. Blueprint cues are development-only debug primitives.
 - Final handoff: Editor open on Demo, PIE stopped, no active writers. No commit or push. Existing startup Condition failed diagnostics and CommonUI viewport diagnostic remain outside Stage 4.
 - Delegation: bounded combat/tests worker, independent native reviewer, and computer-use playtester; one targeted test correction and one visual-layout correction. One initial compile failure (local Player name shadowing) was corrected; final build succeeded. Requested profile settings were Sol low/high and Terra medium; execution model/token/cost metadata was unavailable.
+
+[Startup diagnostics](../../OpenItems/GS-011-StartupDiagnostics.md) · [Projectile lifetime verification](../../OpenItems/GS-012-ProjectileLifetime.md)

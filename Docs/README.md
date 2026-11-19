@@ -1,11 +1,12 @@
 # Project documentation
 
-Use this index to locate a document. Open only the file or section needed for the task. Prerequisite and source links identify dependencies; read them only when their contract is needed.
+Use this index when you need to find a document. Start with the file and section for the task. Follow a prerequisite or source link when you need a specific dependency, rule, or piece of evidence.
 
 | Need | Read |
 | --- | --- |
 | Overall game concept | [Concept](GameDesign/ConceptDesign.md) |
 | A specific gameplay mechanic | Choose it in the [game design index](GameDesign/GameDesign.md). |
+| Open decisions, risks, and checks by topic | [Open-item index](OpenItems/Index.md) |
 | Current code, asset wiring, and shared integration contracts | [Architecture](Technical/Architecture.md) |
 | Direct Unreal implementation work | [Implementation rules](Technical/ImplementationRules.md) |
 | Prototype scope, stage order, or planned responsibilities | [Prototype 1 plan](Technical/Prototype%231/ImplementationPlan.md) |
