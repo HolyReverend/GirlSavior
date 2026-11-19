@@ -11,6 +11,10 @@
 
 - [Главное меню и пауза](Mechanics/Interface/GameMenus.md) — новая игра, продолжение, настройки и выход.
 - [Интерфейс вылазки](Mechanics/Interface/ExpeditionHUD.md) — здоровье, поддержка, цель, добыча и указатели выхода.
+- [Опыт и уровень в вылазке](Mechanics/Interface/ExpeditionExperience.md) — прибавки за врагов и цель, прогресс и сигнал повышения.
+- [Окно выбора усиления](Mechanics/Interface/ExpeditionUpgradeChoice.md) — вид карточек, текущая сборка и предпросмотр.
+- [Действующие усиления](Mechanics/Interface/ExpeditionActiveUpgrades.md) — значки в HUD, готовность золотой способности и окно по U.
+- [Сумка и лента добычи](Mechanics/Interface/ExpeditionInventory.md) — автоматическое зачисление, последние поступления и просмотр инвентаря.
 - [Итоги вылазки](Mechanics/Interface/ExpeditionResults.md) — результат цели, опыт, добыча и открытия после возвращения.
 - [Игровая камера](Mechanics/Player/GameCamera.md) — ракурс, следование, границы кадра и перекрытия.
 - [Перемещение персонажа](Mechanics/Player/CharacterMovement.md) — WASD, скорость, инерция и столкновения.
@@ -21,6 +25,7 @@
 
 - [Каталог оружия](Mechanics/Weapons/Weapons.md) — модели, боевые роли, находки и сравнение урона.
 - [Стрельба персонажа](Mechanics/Weapons/CharacterShootSystem.md) — ввод, серия выстрелов и прерывания.
+- [Обратная связь при стрельбе](Mechanics/Weapons/ShotFeedback.md) — отдача, вспышки, полёт снарядов и эффекты попадания.
 
 ## Героини
 
@@ -41,6 +46,8 @@
 ## Экспедиции
 
 - [Экспедиции](Mechanics/Expeditions/Expeditions.md) — запуск, четыре типа вылазок, условия целей и открытие регионов.
+- [Факел](Mechanics/Expeditions/Torch.md) — свет в Бездне, первая находка и дальность света.
+- [Безопасные комнаты](Mechanics/Expeditions/SafeRooms.md) — розжиг малого костра и временная защита.
 - [Рост сложности](Mechanics/Expeditions/ExpeditionDifficulty.md) — знакомство с врагами и профили давления.
 - [Левел-дизайн экспедиций](Mechanics/Expeditions/ExpeditionLevelDesign.md) — планировки, подходы и сборка маршрута.
 - [Спасение героинь](Mechanics/Expeditions/HeroineRescue.md) — зарядка портала, эвакуация и исход испытания.
@@ -50,6 +57,11 @@
 
 - [Боевые комнаты](Mechanics/Encounters/CombatEncounters.md) — пространство боя и условия продвижения.
 - [Типы противников](Mechanics/Encounters/EnemyTypes.md) — боевые роли, атаки и поведение.
+- [Элитные враги](Mechanics/Encounters/EliteEnemies.md) — Камнелом и Ткач разломов, их способности и условия встречи.
+- [Облик и сигналы элит](Mechanics/Encounters/EliteEnemyPresentation.md) — силуэты, анимации, предупреждения и звук Камнелома и Ткача.
+- [Атаки врагов и реакция героя](Mechanics/Encounters/EnemyAttackFeedback.md) — предупреждения в темноте, удары, снаряды и попадания по барьеру и здоровью.
+- [Эффекты усилений в бою](Mechanics/Encounters/UpgradeCombatFeedback.md) — срабатывание пассивных карт, вид и звук «Рунного импульса» и «Ответного выстрела».
+- [Гибель врагов и героя](Mechanics/Encounters/DeathFeedback.md) — подтверждение добивания, тела и причина гибели героя.
 - [Волны противников](Mechanics/Encounters/EnemyWaves.md) — темп подкреплений, лимиты и появление за кадром.
 
 ## Прогрессия
@@ -58,6 +70,7 @@
 
 - [Прокачка героя](Mechanics/Progression/HeroProgression.md) — уровень, пассивки, ранги оружия и предел собственной силы.
 - [Ресурсы для прокачки](Mechanics/Progression/UpgradeResources.md) — источники материалов и стоимость рангов.
-- [Усиления в экспедиции](Mechanics/Progression/ExpeditionUpgrades.md) — временные бонусы героя и поддержки.
+- [Усиления в экспедиции](Mechanics/Progression/ExpeditionUpgrades.md) — обязательный выбор на паузе, предпросмотр характеристик и действующие карты.
+- [Стартовые карточки усилений](Mechanics/Progression/ExpeditionUpgradeCards.md) — десять карт, значения эффектов и сочетания.
 
 Числовые ориентиры подлежат игровой проверке. Границы первого прототипа определяет [технический план](../Technical/Prototype%231/ImplementationPlan.md).
