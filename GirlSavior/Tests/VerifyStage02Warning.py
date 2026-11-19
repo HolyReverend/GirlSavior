@@ -1,4 +1,4 @@
-"""Run in PIE through PinWright. Bounded world-time warning/impact observation."""
+"""Run in an active PIE session with Unreal Editor Python to observe warning timing."""
 import unreal
 import json
 from pathlib import Path

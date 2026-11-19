@@ -111,11 +111,14 @@ static void Run(const TArray<FString>& Args, UWorld* World)
 			PreviousX=Anchor().X;
 		}
 	}
-	// The solid partition outside doorway width retains normal room-edge framing.
-	Position(FVector(1000,400,90),true); Evaluate(0);
-	const FVector WallAnchor=Anchor();
-	Position(FVector(1100,400,90),true); Evaluate(0);
-	Check(Anchor().Equals(WallAnchor,.001), TEXT("exposed boundary remainder retains wall inset"));
+	// Sample the exterior of the large room away from the annex and its inset corner.
+	// The wall at X=1200 and Demo's 100 cm inset put the expected pivot at X=1100.
+	const FVector ExpectedWallAnchor(1100,800,90);
+	Position(FVector(1125,800,90),true); Evaluate(0);
+	const bool bFirstWallSample = Anchor().Equals(ExpectedWallAnchor,.001) && Inset();
+	Position(FVector(1175,800,90),true); Evaluate(0);
+	Check(bFirstWallSample && Anchor().Equals(ExpectedWallAnchor,.001) && Inset(),
+		TEXT("exposed boundary remainder retains wall inset"));
 
 	Position(FVector(2000,200,90),true); Evaluate(0);
 	Check(Anchor().Equals(FVector(2000,200,90),.001), TEXT("shared room region follows inside external inset"));
@@ -157,7 +160,8 @@ static void Run(const TArray<FString>& Args, UWorld* World)
 		Check(FMath::IsNearlyEqual(Fade(),.8f,.001f), TEXT("normal fade reaches minimum coverage"));
 		Check(Occluder->GameplayBlocker->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block
 			&& Occluder->Boundary->IsVisible(), TEXT("fade preserves blocker and visible boundary"));
-		Position(FVector(1700,-300,90),true); Evaluate(0);
+		// Stay within the 300 cm warning radius while keeping the hero clear of the occluder.
+		Position(FVector(1800,-100,90),true); Evaluate(0);
 		const float HeroOnlyFade = Fade();
 		Warning->SetActorHiddenInGame(false);
 		for(int32 Index=0; Index<9; ++Index) Evaluate(1.f/60);

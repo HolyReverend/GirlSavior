@@ -22,7 +22,8 @@ Completed-stage checklist. Use [current architecture](../Architecture.md) for sh
 | Follow settling time | **0.20 s** to remove 95% of the remaining horizontal error after stopping. Tune within **0.15–0.25 s**. |
 | Hero screen margin | **20%** of width and height from each respective edge |
 | Foreground fade | **0.15 s** for a full fade or restore, with **20%** coverage at full fade |
-| Nearby warning range | **1000 cm** horizontal radius for occlusion checks |
+| Exterior wall inset | **100 cm** in Demo, approved |
+| Nearby warning range | **300 cm** horizontal radius from the hero for occlusion checks in Demo, approved |
 
 Native camera code stays in `Source/GirlSavior/Camera/` in the existing runtime module. Keep camera math in C++ and use level actor properties for room authoring.
 
@@ -30,7 +31,7 @@ Native camera code stays in `Source/GirlSavior/Camera/` in the existing runtime 
 
 - [x] Use AGirlSaviorCameraRoomBounds membership boxes as yaw-only, query-free room geometry. Convert component transforms/extents into world-XY polygons; filter rooms by capsule-center height.
 - [x] Union overlapping/touching footprints. Fill positive facing gaps strictly smaller than WallInset over their side overlap; physical collision is irrelevant. Preserve partial exterior walls, concave outlines and holes. Corner-only gaps without side overlap remain separate, as explicitly confirmed by the user.
-- [x] Apply WallInset from DA_CameraManager (initial300cm) only to the outer region contours, then choose the nearest preferred anchor inside that inset region. If a region is too small for any inset point, use the nearest original room centroid; hero screen margin remains authoritative.
+- [x] Apply WallInset from DA_CameraManager only to the outer region contours, then choose the nearest preferred anchor inside that inset region. If a region is too small for any inset point, use the nearest original room centroid. The hero screen margin remains authoritative.
 - [x] Cache placed rooms per loaded level and rebuild union geometry when transforms, extents, height eligibility or WallInset change. Gather nearby warnings from the same connected region.
 - [x] Remove CameraDoorway actors/native class and the old per-room PivotCenter/PivotHalfExtent tuning. Demo retains its two rooms, physical doorway, warning and foreground fixture.
 
@@ -73,7 +74,7 @@ Native camera code stays in `Source/GirlSavior/Camera/` in the existing runtime 
 
 ## Historical execution on 2026-11-07
 
-The doorway volumes and pivot rectangles described in this section were superseded by the accepted room-adjacency revision. Use Steps 1–7 for the current implementation.
+This section records the doorway geometry, pivot behavior, and tuning from the 2026-11-07 run. Steps 1–7 describe the current implementation and approved Demo settings.
 
 - **State:** accepted on 2026-11-07 after technical checks and the user's manual confirmation: «Пройдено — всё работает». The user authorized Stage 2 in the existing checkout. No commit or push.
 - **Baseline:** Stage 1 accepted. Initial sandbox Git access failed, so affected baseline file hashes were saved to `GirlSavior/Saved/Stage2/Baseline.json`. Read-only Git outside that shell later confirmed main at `8fd94e0fd49bc0b49004280400b9438524d5bc94`. A complete initial dirty-state inventory was unavailable; existing Archive/report folders were preserved.
@@ -97,19 +98,21 @@ Movement runs before the final camera cache. Aim must consume that cache in **TG
 
 ### Manual acceptance route
 
+The PIE probe for the approved Demo tuning samples the exposed room edge away from the annex junction and places the hero within the warning radius for the warning-only fade check. [GS-034](../../OpenItems/GS-034-PieCameraAcceptance.md)
+
 1. Start Demo in a 960×720 PIE window (4:3). For a quick approach, open the PIE console and run `GirlSavior.CameraSnap 900 -300`.
 2. Walk toward the doorway, stop/reverse, cross and turn back partway through the transition. The hero remains inside the 20% inset and the view settles calmly. Walk around the foreground blocker while checking its visible cyan boundary and collision.
 3. Enter the doorway trigger: the orange floor warning appears before the cosmetic impact. Its source stays out of frame; the foreground upper mesh fades when it hides the hero or active warning and restores when clear.
 4. Run `GirlSavior.CameraSnap 2200 0` on the same pawn. The first updated camera view must frame the new position with the correct occlusion state.
 5. The user reported this route **passed** on 2026-11-07: «Пройдено — всё работает». Both technical verification and manual acceptance are complete.
 
-Reproduction helpers are editor-only. `GirlSavior.TestCamera <width> <height>` writes the camera check report; `GirlSavior.CameraSnap <X> <Y>` teleports to floor height and requests a camera snap. `Tests/SetupStage02Camera.py` authors only the named Stage 2 layout in Demo; `Tests/VerifyStage02Warning.py` observes trigger/timer ordering asynchronously in PIE.
+Reproduction helpers are editor-only. `GirlSavior.TestCamera <width> <height>` writes the camera check report. `GirlSavior.CameraSnap <X> <Y>` teleports to floor height and requests a camera snap. Run `Tests/VerifyStage02Warning.py` with Unreal Editor Python during PIE for the asynchronous timing probe. `Tests/SetupStage02Camera.py` authors the original fixture and belongs in a separate project copy with Demo open. Use the saved Demo in the active checkout for current acceptance checks. [Editor workflow](../../../Codex/UnrealMCP.md)
 
 ## Historical doorway follow correction — 2026-11-07
 
 The user later reported that follow stopped at the free passage. Inspection and a capsule sweep confirmed the physical opening is clear. The authored camera transition was too short: it covered X=1000–1400 while the large-room pivot stops at X=900 and the small-room pivot does not resume following until X=1710. Room clamping therefore produced stationary camera intervals at the approach and exit.
 
-Corrected only the placed doorway's camera coverage: center **(1305,0,0)**, half extents **(405,220,300)**, spanning **X=900–1710**. Room memberships, preferred rectangles, physical walls, collision and the runtime camera algorithm are unchanged. `Tests/SetupStage02Camera.py` reproduces the corrected layout.
+Corrected only the placed doorway's camera coverage: center **(1305,0,0)**, half extents **(405,220,300)**, spanning **X=900–1710**. Room memberships, preferred rectangles, physical walls, collision and the runtime camera algorithm are unchanged. Use the saved Demo to reproduce the corrected layout.
 
 - **Red/green reproduction:** `Tests/VerifyStage02Doorway.py` moves the actual PIE capsule with sweep along Y=100, X=900→1800→900 and samples the final camera after 0.35 s at each stop. Before correction it found eight zero-advance intervals; after correction all 19 samples passed, with minimum camera advance 33.99 cm between route samples. Finite positions/advances are required; the bounded callback unregisters and restores the pawn on normal completion.
 - **Regression coverage:** `GirlSavior.TestCamera 960 720` and `1280 720` now each pass **138 checks**. Added full approach/exit sweeps, camera advance in both directions, screen margin and a separate solid-wall framing check. Existing lens, fade, snap and room checks still pass. `GirlSavior.TestAim` passes **58 checks** at each aspect ratio.
@@ -120,6 +123,8 @@ Corrected only the placed doorway's camera coverage: center **(1305,0,0)**, half
 ## Shared camera settings asset
 
 The shared implementation settings (view rotation, follow distance, horizontal FOV, settle time, hero screen margin, fade duration, minimum coverage and nearby warning radius and external wall inset) are authored in `Content/Data/DataAssets/DA_CameraManager.uasset`. `BP_PrototypeCameraManager.CameraSettings` references this asset. Runtime consumers read the asset directly; values are not copied into the manager. Validated native class defaults provide a fallback for unassigned native instances or invalid data. Room membership geometry remains per level actor. Doorway camera volumes and per-room preferred pivot rectangles have been removed.
+
+The approved Demo configuration stores `WallInset = 100` cm and `NearbyWarningRange = 300` cm in this Data Asset. The dated execution notes below record earlier prototype tuning.
 
 ## Room adjacency framing revision — accepted (2026-11-08)
 
