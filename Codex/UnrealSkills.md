@@ -50,5 +50,5 @@ Source for this section. [Quod Soler skill catalog](https://github.com/quodsoler
 | Design module boundaries, dependency direction, or Public/Private APIs | `ue5-architecture` |
 | Reproduce a project issue, check assets or logs, or narrow a regression | `ue5-debug-validation` |
 | Check PIE performance, packaging configuration, or release readiness | `ue5-performance-packaging` |
-| Inspect or change the open GirlSavior editor through MCP, or run editor actions | Use the project-specific [Unreal MCP guide](UnrealMCP.md). |
+| Inspect or change the open GirlSavior editor through MCP, including editor Python | `unreal-engine-skills-for-codex:unreal-mcp` with the project-specific [Unreal MCP guide](UnrealMCP.md) and the live tool schemas. |
 | Create or edit an Agent Skill registered with Unreal's MCP server | `unreal-engine-skills-for-codex:unreal-skill` |
