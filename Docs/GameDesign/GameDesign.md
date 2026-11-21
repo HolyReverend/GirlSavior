@@ -51,6 +51,7 @@
 - [Безопасные комнаты](Mechanics/Expeditions/SafeRooms.md) — розжиг малого костра и временная защита.
 - [Рост сложности](Mechanics/Expeditions/ExpeditionDifficulty.md) — знакомство с врагами и профили давления.
 - [Левел-дизайн экспедиций](Mechanics/Expeditions/ExpeditionLevelDesign.md) — планировки, подходы и сборка маршрута.
+- [Комнаты Бездны](Mechanics/Expeditions/AbyssRoomDesign.md) — облик, атмосфера, отсылки к мирам героинь и сборка декораций.
 - [Спасение героинь](Mechanics/Expeditions/HeroineRescue.md) — зарядка портала, эвакуация и исход испытания.
 - [Возвращение из экспедиции](Mechanics/Expeditions/ExpeditionReturn.md) — выходы, перенос добычи и последствия гибели.
 
