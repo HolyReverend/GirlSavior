@@ -65,6 +65,16 @@ void UGirlSaviorCharacterMovementComponent::CalcVelocity(float DeltaTime, float 
 
 void UGirlSaviorCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
 {
+    // A mode forced by another system ends protection without discarding its new velocity.
+    if (PreviousMovementMode == MOVE_Custom && PreviousCustomMode == DashMode && !IsDashing()
+        && DashTimeRemaining > 0.0)
+    {
+        if (Velocity.Equals(DashVelocity))
+        {
+            Velocity = FVector::ZeroVector;
+        }
+        ClearDashState(TEXT("movement mode changed"));
+    }
     if (PreviousMovementMode != MovementMode
         && (PreviousMovementMode == MOVE_Walking || MovementMode == MOVE_Walking))
     {

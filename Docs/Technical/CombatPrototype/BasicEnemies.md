@@ -18,7 +18,7 @@ Use the Pawn object type and the projectile response pairs from the [damage spec
 
 ### Starting values
 
-These are prototype tuning proposals. All distances use cm and all times use game-time seconds.
+Enter these starting values in the corresponding `DA_Enemy…` Data Assets. Each asset owns its role's movement, damage, attack geometry and phase timing. Store Shooter projectile tuning in the Shooter definition. All distances use cm and all times use game-time seconds.
 
 | Role | HP / walk speed | Admission geometry | Preparation / locked tail / recovery | Delivery |
 | --- | --- | --- | --- | --- |

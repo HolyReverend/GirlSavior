@@ -11,8 +11,9 @@ Before adding waves, place `AGirlSaviorCombatEncounter` in the first-fight map w
 | Owner | Data and wiring |
 | --- | --- |
 | `AGirlSaviorCombatEncounter` in `Encounters/` | One actor in the map. Holds the active hero, ordered run state (`Waiting`, `Active`, `Succeeded`, `Defeated`), current room, wave deadlines/reservation, live registries and the dangerous slot. Expose read-only run state and combatant registration/removal events to the presenter. Add a waves-enabled flag for the CP1/CP2 placed-enemy fixtures. |
-| `AGirlSaviorCombatRoom` in `Encounters/` | One authored room ID, a hero overlap volume, explicit neighbor links, associated door references, a profile and a list of entrance groups. Give each entrance group an approach direction and at least four exact capsule-center slots on one continuous floor path. Use floor markers and editor-only arrows for authoring. |
-| `UGirlSaviorWaveProfile` in `Encounters/` | Desired population, refill threshold, normal interval, optional one-time introduction role, ordered eligible group recipes of at most four roles, and empty-frame acceleration flag. Reference the approved enemy classes through the encounter's role-to-class list. Validate unique room IDs, positive intervals, valid classes and the threshold/target relation at startup. |
+| `AGirlSaviorCombatRoom` in `Encounters/` | One authored room ID, a hero overlap volume, explicit neighbor links, associated door references, a profile and a list of entrance groups. Give each entrance group an approach direction and enough exact capsule-center slots for the configured maximum group size on one continuous floor path. Use floor markers and editor-only arrows for authoring. |
+| `UGirlSaviorWaveSettings` in `Encounters/` | Shared Data Asset referenced by the encounter as `DA_CombatWaveSettings`. Holds population and role caps, maximum group size, minimum group gap, reservation delay, screen margin, minimum approach distance and imminent-approach time. |
+| `UGirlSaviorWaveProfile` in `Encounters/` | One Data Asset instance per pressure profile. Holds desired population, refill threshold, normal interval, optional one-time introduction role, ordered eligible group recipes up to the shared group limit, and the empty-frame acceleration flag. Reference the approved enemy classes through the encounter's role-to-class list. Validate unique room IDs, positive intervals, valid classes and the threshold/target relation at startup. |
 | Doors and route triggers | Use the actual door blocking state for each adjacency edge. Author Nav Modifiers with `NavArea_Null` while closed and cleared when open. With Runtime Generation = Dynamic Modifiers Only, keep the navmesh baked on the open floor. Reject closed edges immediately while nav tiles catch up. Make crossings explicit overlaps. Prefer nonoverlapping room volumes with doors/corridors assigned to a single logical room. |
 
 The first combat-room overlap starts the run and makes its group immediately eligible. Resolve room changes from the possessed hero and keep the last room through a threshold gap. On same-frame overlaps, choose the room containing the hero capsule center in the authored route order. Clear the choice on EndPlay. Keep explicit checks for a hero already inside at possession/start. Returning from a later room uses the current room's profile and preserves its introduction flag and the last actual group time.
@@ -27,7 +28,7 @@ The first combat-room overlap starts the run and makes its group immediately eli
 | Quiet connector | 2 / 1 | 10 s | Up to two Pursuers, ordinary interval even during an empty frame. |
 | Mixed room | 6 / 4 | 5 s | Start with 2 Pursuers + Shooter + Charger when four slots and both roles are available. Keep at least one Pursuer in repeat groups. Shorten the recipe or use a Pursuer fallback when the role or entrance budget is smaller. |
 
-Treat these values as playtest starting points. Set the global caps to **8** occupied places, **2** Shooters, **1** Charger, **4** per group and **3 s** minimum gap between actual groups. Charge caps across all rooms. Role recipes use ordered priorities. Clip to valid slots and use the stable asset/room order for ties. Spawn a one-enemy group for a first introduction, a quiet section, or when only one valid place/role remains. Mark introduction served only when that role actually spawns in its owning room. Repeat groups on the mixed route include a Pursuer.
+Enter the table values in the room profile assets. In `DA_CombatWaveSettings`, set **8** occupied places, up to **2** Shooters and **1** Charger, up to **4** enemies per group and a **3 s** minimum gap between actual groups. Enforce these caps across all rooms. Role recipes use ordered priorities. Clip to valid slots and use the stable asset/room order for ties. Spawn a one-enemy group for a first introduction, a quiet section, or when only one valid place/role remains. Mark introduction served only when that role actually spawns in its owning room. Repeat groups on the mixed route include a Pursuer.
 
 ## 2. Keep one live registry and at most one reservation
 
@@ -52,13 +53,13 @@ else if reservation exists:
     if now >= dueTime: revalidate and finish reservation
 else if view is valid and retry is due and TimingAllows(profile, now):
     if occupied <= profile.threshold:
-        budget = min(profile.target - occupied, globalCap - occupied, 4)
+        budget = min(profile.target - occupied, settings.globalCap - occupied, settings.maxGroupSize)
         choose roles and an entrance within budget and role caps
         reserve the chosen group or wait until the next check
 
 TimingAllows(profile, now):
     if LastCommittedGroupTime is unset: return true
-    if now < LastCommittedGroupTime + globalMinGap: return false
+    if now < LastCommittedGroupTime + settings.globalMinGap: return false
     return now >= LastCommittedGroupTime + profile.interval
            or (profile accelerates and frame is empty and no imminent approach)
 ```

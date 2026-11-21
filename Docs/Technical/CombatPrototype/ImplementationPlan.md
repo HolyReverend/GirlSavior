@@ -8,7 +8,22 @@ Build one playable Unreal Engine 5.9 greybox route. The player enters from a saf
 
 1. Read the [current architecture](../Architecture.md), the owning stage below, and its source design. Use the [Unreal implementation rules](../ImplementationRules.md) and the project's `stage-orchestrator` workflow for execution.
 2. Open `GirlSavior/GirlSavior.uproject` in the installed UE 5.9 build. Recheck the current source and assets before changing anything. The plan was checked against source, config, and asset paths on 2026-11-21. The current receiver only validates and accumulates damage. Stage 5 dash is an implementation dependency of full acceptance.
-3. Keep one runtime module. Put shared hit and projectile code in `Source/GirlSavior/Combat/`, enemy behavior in `Enemies/`, and room and wave orchestration in `Encounters/`. Keep C++ authoritative for gameplay. Author child Blueprints, greybox meshes, presentation, and level instances in the editor. Use reusable Data Assets for enemy definitions and wave profiles. Document every new Data Asset property, including nested fields, in Russian as required by the project rules.
+3. Keep one runtime module. Put shared hit and projectile code in `Source/GirlSavior/Combat/`, enemy behavior in `Enemies/`, and room and wave orchestration in `Encounters/`. Keep C++ authoritative for gameplay. Author child Blueprints, greybox meshes, presentation, and level instances in the editor.
+
+## Balance settings in Data Assets
+
+Author gameplay balance in separate typed `UDataAsset` instances under `Content/Data/DataAssets/Combat/`. Each value has one asset owner. Blueprints and placed actors reference the relevant assets. C++ validates and reads their values. Tables in the specs give the initial values to enter in the assets. Keep combat tuning out of C++ constants, Blueprint graphs, and per-instance overrides.
+
+| Data Asset | Values it owns | Reader |
+| --- | --- | --- |
+| `DA_HeroCombatPrototype` | Initial health, barrier and resistances | Hero damage receiver at initialization |
+| `DA_PrototypeDash` | Distance, duration, protection window, cooldown and minimum travel at admission | Existing hero movement component |
+| `DA_CombatPistol` | Damage, shots per second, projectile radius, speed and range | Existing FireComponent and shared projectile launch helper |
+| `DA_EnemyPursuer`, `DA_EnemyShooter`, `DA_EnemyCharger` | Per-role health, movement and attack geometry, damage and phase durations. The Shooter asset also supplies its projectile settings. | Enemy character, controller and attack component |
+| `DA_CombatWaveSettings` | Shared population and role caps, group size, minimum gap and spawn admission tuning | Encounter |
+| One `DA_WaveProfile_*` per pressure profile | Target count, refill threshold, interval, role recipes and empty-frame acceleration | Encounter through the current room's profile reference |
+
+Document each Data Asset property, including nested fields, in Russian. Validate required references and field ranges before activating combat. Copy the values needed by an accepted shot, attack or dash into its runtime state. Keep current health, reservations, and cooldown deadlines in runtime instances. For balance acceptance, change a value in a Data Asset, start a fresh PIE run, and verify the corresponding behavior through the normal gameplay path with the same map and Blueprints.
 
 ## Stage order and gates
 
@@ -19,6 +34,25 @@ Build one playable Unreal Engine 5.9 greybox route. The player enters from a saf
 | **CP2 · Base roster** | Add [Shooter and Charger](BasicEnemies.md), individual test lanes and the shared dangerous-attack slot. Add their line, projectile, and stripe cues before tuning. | Show all three roles individually, then put a Shooter and Charger in the same test room. At most one dangerous threat is active. Cover, walk-off escape, ally blocking, interrupted windup and posthumous projectile all behave as specified. |
 | **CP3 · Waves and route** | Add [room profiles, entrance groups, reserves and the run registry](EnemyWaves.md). Build a connected route and connect entry, exit, safe boundary and encounter cleanup. Move placed test enemies away from the main route or register them explicitly as fixture enemies. | Complete a continuous route with first encounters and mixed reinforcements. Log counts and elapsed times in the fast-kill, backlog, invalid-door, camera-edge, quiet-room and terminal cases. |
 | **CP4 · Feedback and acceptance** | Finish [combat feedback](CombatFeedback.md), HUD, dark test setup, and defeat cause. Run the integrated suite and the real camera playtest at more than one viewport aspect ratio. Tune through Data Assets and record values and results. | One map is playable from fresh start to exit or death, and Retry starts a clean session. Record quantitative checks, visual observations and any deferred GDD scenarios. |
+
+### CP0 execution record · 2026-11-21
+
+- CP0 verifies the Demo baseline and delivers the Stage 5 movement, input, tuning and live protection query. CP1 owns damage filtering and the first combat encounter.
+- The baseline was `0b1a14264d41c6ab664a2b5d77e8e781ef531269` on `main`. Draft changes to combat specifications and Stage 5 plus untracked `Archive/` were already present.
+- **CP0 is technically verified.** `BP_PrototypeCharacter` loads `DA_PrototypeDash` on its movement component. A fresh editor process read back the saved asset and its values.
+- Win64 Development Editor built successfully. All three `GirlSavior.` tests passed. The dash test includes admission sweeps, real capsule sweeps at 30 and 60 Hz, steps and edges, and the strict protection deadline.
+- In Demo PIE, `GirlSavior.TestDash` passed 12 checks in a focused viewport. The capsule travelled 300.000 cm in 0.220000 s. LMB launched a shot during the dash and continued at 4 shots/s. Protection expired while the dash was still moving. A control handoff cancelled a second dash immediately and preserved its ready time. The existing safe area rejected a new dash.
+- Walking passed at 30 and 60 Hz. At 960 × 720 and 1280 × 720, the camera and aim probes passed 82 and 58 checks respectively per size. The combat probe passed 37 checks, including real safe-area overlap and possession.
+- Build, Automation, and PIE captures are under `GirlSavior/Saved/CP0/`. Use the live protection query in CP1's shared damage receiver. The full [Stage 5 route](../Prototype%231/Stage05-DefensiveDash.md#step-7--build-and-run-one-dash-acceptance-route-in-pie) includes the damage and presentation checks.
+
+### CP1 execution record · 2026-11-22
+
+- **CP1 is technically verified.** It was built on the verified, uncommitted CP0 checkout at `0b1a14264d41c6ab664a2b5d77e8e781ef531269`. The arena is saved at `/Game/Maps/TestMaps/CombatPrototype`. It includes a safe starting pocket, a health target, cover, a navmesh lane with one Pursuer and a marked exit.
+- The saved map was reopened and navigation returned a complete path from the Pursuer spawn to the fight entrance. The hero starts with 100 HP. The Pursuer and health target use 30 HP each.
+- The live dash query blocked all three direct deliveries during protection. Area and floor damage applied. A direct hit applied after interruption and after the protection deadline. Separate automation checked barriers, resistance, source attribution, and one-time death dispatch.
+- The Pursuer approached over the saved navmesh, showed a locked sector, and swung after the hero walked out of it. Three LMB shots killed the Pursuer and cleared body collision. Shots used the authored 1400 cm range at both 60 and 15 Hz simulation steps. A long sweep stopped on the near face of cover, and the safe pocket intercepted a shot in its open entrance.
+- A separate melee hit killed the hero and showed `Удар преследователя`. Retry restored the map, 100 HP and a new 30 HP Pursuer. A second foreground run received movement input and entered combat. The arena exit showed the success panel and closed gameplay input.
+- The Win64 Development Editor build and all five `GirlSavior.` tests passed. The first-fight route passed 22 checks and the defeat route passed seven. The existing Demo combat probe passed 37 checks. The clear-flight Demo projectile expired by its lifetime timer. Build, Automation, and PIE captures are under `GirlSavior/Saved/CP1/`. CP2 adds the Shooter, Charger, and dangerous-attack slot.
 
 ## Responsibilities and data flow
 
@@ -40,7 +74,7 @@ flowchart LR
 
 | Owner | Implementation boundary |
 | --- | --- |
-| `UGirlSaviorFireComponent` and existing player classes | Own input, aim, fire cadence and dash. Load projectile configuration through the configured projectile class. Death uses the existing controller input gate and dash interruption. |
+| `UGirlSaviorFireComponent` and existing player classes | Own input, aim, fire cadence and dash. Read combat weapon and dash tuning from the assigned Data Assets. Death uses the existing controller input gate and dash interruption. |
 | `AGirlSaviorTestProjectile`, `UGirlSaviorDamageReceiverComponent` | Projectile owns swept travel and a single contact outcome. Receiver owns health, barrier, protection, ordered state updates and the lethal snapshot. Calls carry source data by value. |
 | `AGirlSaviorEnemyCharacter`, `AGirlSaviorEnemyAIController`, `UGirlSaviorEnemyAttackComponent` | Character owns composition and body lifetime. AI owns navigation intent. Attack component owns phase, geometry and damage delivery. Definitions supply tuning. |
 | `AGirlSaviorCombatEncounter`, `AGirlSaviorCombatRoom` | Placed per-map encounter owns run state, registered combatants, scheduled groups, and the right to start one dangerous attack. Room actors own authored identity, topology, spawn slots, and profile selection. |
@@ -50,7 +84,7 @@ Use game-thread updates and game-time seconds for gameplay clocks. AI/path refre
 
 ## Assemble the Editor map
 
-1. Create `Content/Maps/TestMaps/CombatPrototype.umap`. Open it directly for PIE or standalone. Set World Settings → GameMode Override to a `BP_CombatPrototypeGameMode` child of the existing prototype GameMode Blueprint. Set its Default Pawn Class to `BP_CombatPrototypeCharacter`, a child of `BP_PrototypeCharacter` with the combat pistol and HUD vitals presets. Inherit the existing controller, input mapping and camera settings. Keep the existing startup map.
+1. Create `Content/Maps/TestMaps/CombatPrototype.umap`. Open it directly for PIE or standalone. Set World Settings → GameMode Override to a `BP_CombatPrototypeGameMode` child of the existing prototype GameMode Blueprint. Set its Default Pawn Class to `BP_CombatPrototypeCharacter`, a child of `BP_PrototypeCharacter` that references the hero and pistol Data Assets. Inherit the dash asset reference, controller, input mapping and camera settings. Keep the existing startup map.
 2. Lay out a flat safe start pocket with one PlayerStart, then a Pursuer lane, Shooter room with a walk-around column, Charger room with clear side escape and a stop wall, quiet connector, mixed room and a marked exit. Start with combat footprints around **2400 × 2400 cm**. Fit rooms and linked corridors to the actual camera. Add the existing camera room bounds to each footprint and preserve foreground wall fade setup. Keep the combat floor near one height for the first pass.
 3. Use the attack and wave specs for collision profiles, nav setup, room IDs, entrances and profiles. Place one encounter and one feedback presenter. Use simple collision on walls, floor, cover, closed test doors, and safe boundary. Author at least two possible entrance directions in the mixed room and enough depth to allow offscreen approach. Press **P** in the Editor to inspect NavMesh coverage. [Epic navigation overview](https://dev.epicgames.com/documentation/en-us/unreal-engine/navigation-system-in-unreal-engine)
 4. Start in the safe pocket. Start the run at the first combat-room boundary. Ordinary room transitions are free in both directions. Use the exit trigger to request Success through the encounter. Wire player death to the same terminal path with Defeat. On either terminal state, close gameplay input, cancel reservations and attached attacks, and remove live projectiles and enemies through the encounter's cleanup path. Use a result overlay with Retry. Retry reloads the same map and reinitializes the run, including Health, Barrier, clocks, introductions, and the dangerous slot.

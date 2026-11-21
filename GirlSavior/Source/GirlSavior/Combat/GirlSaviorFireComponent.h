@@ -6,6 +6,8 @@
 #include "GirlSaviorFireComponent.generated.h"
 
 class AGirlSaviorTestProjectile;
+class AGirlSaviorCombatEncounter;
+class UGirlSaviorCombatPistolSettings;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGirlSaviorShotCue, FVector, Position, FVector, Direction);
 
 UCLASS(ClassGroup=(Prototype), meta=(BlueprintSpawnableComponent))
@@ -22,6 +24,12 @@ public:
 	float ShotsPerSecond = 4.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Prototype|Fire")
 	TSubclassOf<AGirlSaviorTestProjectile> ProjectileClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Prototype|Fire")
+	TObjectPtr<UGirlSaviorCombatPistolSettings> CombatPistol;
+
+	bool SetCombatEncounter(AGirlSaviorCombatEncounter* InEncounter);
+
 	UPROPERTY(BlueprintAssignable, Category="Prototype|Fire")
 	FGirlSaviorShotCue OnShotCue;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -29,4 +37,5 @@ protected:
 	virtual void BeginPlay() override;
 private:
 	FGirlSaviorFireSchedule Schedule;
+	TWeakObjectPtr<AGirlSaviorCombatEncounter> CombatEncounter;
 };

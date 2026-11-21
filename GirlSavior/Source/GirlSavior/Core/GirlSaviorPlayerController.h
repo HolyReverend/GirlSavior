@@ -28,7 +28,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Prototype|Input")
 	bool GetGameplayInputAvailable() const { return bGameplayInputAvailable; }
 
-	// Ordered physical mouse edges are the single source for firing.
+	// Ordered physical button edges feed firing and dash requests.
 	virtual bool InputKey(const FInputKeyEventArgs& Params) override;
 	virtual bool SetPause(bool bPause, FCanUnpause CanUnpauseDelegate = FCanUnpause()) override;
 	virtual void FlushPressedKeys() override;
@@ -37,6 +37,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Prototype|Fire")
 	void SetFireAllowed(bool bAllowed);
 	void SetSafeAreaActive(AActor* Area, bool bActive);
+	bool IsInSafeArea() const;
 
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
@@ -59,8 +60,10 @@ private:
 	void ClearMovementIntent();
 	void ClearAimCursorSample();
 	void CancelFireSeries();
+	void CancelDashInput();
 	bool CanAcceptFirePress(const FInputKeyEventArgs& Params) const;
 	bool bFireAllowed = true;
+	bool bDashRequested = false;
 	TSet<TWeakObjectPtr<AActor>> SafeAreas;
 
 	bool bGameplayInputAvailable = true;

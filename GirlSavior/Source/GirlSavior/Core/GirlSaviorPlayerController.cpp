@@ -1,6 +1,7 @@
 #include "Core/GirlSaviorPlayerController.h"
 #include "Camera/GirlSaviorPlayerCameraManager.h"
 #include "Characters/GirlSaviorCharacter.h"
+#include "Characters/GirlSaviorCharacterMovementComponent.h"
 #include "Characters/GirlSaviorAimComponent.h"
 #include "UnrealClient.h"
 #include "Combat/GirlSaviorFireComponent.h"
@@ -123,6 +124,7 @@ void AGirlSaviorPlayerController::SetGameplayInputAvailable(bool bAvailable)
 		ClearMovementIntent();
 		ClearAimCursorSample();
 		CancelFireSeries();
+		CancelDashInput();
 	}
 }
 
@@ -130,6 +132,7 @@ void AGirlSaviorPlayerController::FlushPressedKeys()
 {
 	Super::FlushPressedKeys();
 	CancelFireSeries();
+	CancelDashInput();
 	ClearMovementIntent();
 	ClearAimCursorSample();
 }
@@ -137,6 +140,7 @@ void AGirlSaviorPlayerController::FlushPressedKeys()
 void AGirlSaviorPlayerController::OnUnPossess()
 {
 	CancelFireSeries();
+	CancelDashInput();
 	SafeAreas.Empty();
 	ClearAimCursorSample();
 	ClearMovementIntent();
@@ -147,6 +151,7 @@ void AGirlSaviorPlayerController::OnUnPossess()
 void AGirlSaviorPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	CancelFireSeries();
+	CancelDashInput();
 	ClearAimCursorSample();
 	ClearMovementIntent();
 	RemoveGameplayInput();
@@ -156,16 +161,23 @@ void AGirlSaviorPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReas
 void AGirlSaviorPlayerController::PostProcessInput(float DeltaTime, bool bGamePaused)
 {
 	Super::PostProcessInput(DeltaTime, bGamePaused);
+	const bool bTryDash = bDashRequested;
+	bDashRequested = false;
 	ClearMovementIntent();
 
 	AGirlSaviorCharacter* PrototypeCharacter = Cast<AGirlSaviorCharacter>(GetPawn());
 	const UEnhancedPlayerInput* EnhancedInput = Cast<UEnhancedPlayerInput>(PlayerInput);
 	const AGirlSaviorPlayerCameraManager* Camera =
 		Cast<AGirlSaviorPlayerCameraManager>(PlayerCameraManager);
-	if (bGamePaused || !CanUseGameplayInput() || IsMoveInputIgnored() || !PrototypeCharacter
+	const bool bCanMove = !bGamePaused && CanUseGameplayInput() && !IsMoveInputIgnored();
+	if (!bCanMove || !PrototypeCharacter
 		|| !EnhancedInput || !MoveAction || !Camera)
 	{
 		ClearAimCursorSample();
+		if (!bCanMove)
+		{
+			CancelDashInput();
+		}
 		return;
 	}
 
@@ -180,6 +192,11 @@ void AGirlSaviorPlayerController::PostProcessInput(float DeltaTime, bool bGamePa
 	if (!WorldIntent.IsNearlyZero())
 	{
 		PrototypeCharacter->AddMovementInput(WorldIntent.GetSafeNormal(), WorldIntent.Size());
+		if (bTryDash)
+		{
+			CastChecked<UGirlSaviorCharacterMovementComponent>(PrototypeCharacter->GetCharacterMovement())
+				->TryStartDash(WorldIntent);
+		}
 	}
 }
 
@@ -203,6 +220,16 @@ bool AGirlSaviorPlayerController::CanAcceptFirePress(const FInputKeyEventArgs& P
 
 bool AGirlSaviorPlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
+	// Read readiness on the physical press. Repeats or presses during cooldown never queue.
+	if (Params.Key == EKeys::LeftShift && Params.Event == IE_Pressed
+		&& CanUseGameplayInput() && !IsMoveInputIgnored() && !IsInSafeArea())
+	{
+		if (const auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn()))
+		{
+			const auto* Movement = CastChecked<UGirlSaviorCharacterMovementComponent>(Hero->GetCharacterMovement());
+			bDashRequested = !Movement->IsDashing() && Movement->GetDashCooldownRemaining() <= 0.0;
+		}
+	}
 	if (Params.Key == FireButton && FireButton.IsMouseButton())
 	{
 		if (auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn()))
@@ -220,18 +247,37 @@ void AGirlSaviorPlayerController::CancelFireSeries()
 	if (auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn())) Hero->GetFireComponent()->CancelFireSeries();
 }
 
+// Shared cleanup for focus, pause and possession changes.
+void AGirlSaviorPlayerController::CancelDashInput()
+{
+	bDashRequested = false;
+	if (auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn()))
+	{
+		CastChecked<UGirlSaviorCharacterMovementComponent>(Hero->GetCharacterMovement())->CancelDash();
+	}
+}
+
 bool AGirlSaviorPlayerController::SetPause(bool bPause, FCanUnpause CanUnpauseDelegate)
 {
 	const bool bSucceeded = Super::SetPause(bPause, CanUnpauseDelegate);
-	if (bSucceeded && bPause) CancelFireSeries();
+	if (bSucceeded && bPause)
+	{
+		CancelFireSeries();
+		CancelDashInput();
+	}
 	return bSucceeded;
 }
 
 bool AGirlSaviorPlayerController::IsFireAllowed() const
 {
-	if (!bFireAllowed) return false;
-	for (const auto& Area : SafeAreas) if (Area.IsValid()) return false;
-	return true;
+	return bFireAllowed && !IsInSafeArea();
+}
+
+// The area registry is shared by fire and dash. The explicit fire switch remains fire-specific.
+bool AGirlSaviorPlayerController::IsInSafeArea() const
+{
+	for (const auto& Area : SafeAreas) if (Area.IsValid()) return true;
+	return false;
 }
 
 void AGirlSaviorPlayerController::SetFireAllowed(bool bAllowed)
@@ -247,6 +293,7 @@ void AGirlSaviorPlayerController::SetSafeAreaActive(AActor* Area, bool bActive)
 	{
 		SafeAreas.Add(Area);
 		CancelFireSeries();
+		CancelDashInput();
 	}
 	else SafeAreas.Remove(Area);
 }

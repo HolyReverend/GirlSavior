@@ -16,6 +16,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "TimerManager.h"
 #include <limits>
 
 namespace
@@ -241,5 +242,43 @@ void RunCombatAcceptance(const TArray<FString>& Args, UWorld* World)
 FAutoConsoleCommandWithWorldAndArgs CombatAcceptanceCommand(TEXT("GirlSavior.TestCombat"),
  TEXT("Run native Stage 4 collision, damage, and permission probes in Demo PIE."),
  FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&RunCombatAcceptance));
+
+// Let the saved Demo projectile fly through empty space on the real game clock.
+void RunDemoLifetime(const TArray<FString>& Args, UWorld* World)
+{
+ if (!World || World->WorldType != EWorldType::PIE || !World->GetMapName().EndsWith(TEXT("_Demo")))
+ {
+  return;
+ }
+ UClass* Class = LoadClass<AGirlSaviorTestProjectile>(nullptr,
+  TEXT("/Game/Blueprints/Core/BP_TestProjectile.BP_TestProjectile_C"));
+ const FVector Start(0, 0, 3000);
+ AGirlSaviorTestProjectile* Shot = Class ? World->SpawnActor<AGirlSaviorTestProjectile>(
+  Class, Start, FRotator::ZeroRotator) : nullptr;
+ const TWeakObjectPtr<AGirlSaviorTestProjectile> Projectile(Shot);
+ const TSharedRef<double> EarlyDistance = MakeShared<double>(0.0);
+ FTimerHandle EarlySample, FinalSample;
+ World->GetTimerManager().SetTimer(EarlySample, FTimerDelegate::CreateLambda([Projectile, EarlyDistance, Start]
+ {
+  if (Projectile.IsValid())
+  {
+   *EarlyDistance = FVector::Dist(Start, Projectile->GetActorLocation());
+  }
+ }), 1.25f, false);
+ World->GetTimerManager().SetTimer(FinalSample, FTimerDelegate::CreateLambda([Projectile, EarlyDistance]
+ {
+  const bool bPassed = *EarlyDistance > 2000.0 && !Projectile.IsValid();
+  const FString Directory = FPaths::ProjectSavedDir() / TEXT("CP1");
+  IFileManager::Get().MakeDirectory(*Directory, true);
+  const FString Lines = FString::Printf(TEXT("Distance at 1.25 s %.2f cm. Expired by 1.65 s = %d. Result = %s.\n"),
+   *EarlyDistance, !Projectile.IsValid(), bPassed ? TEXT("PASS") : TEXT("FAIL"));
+  FFileHelper::SaveStringToFile(Lines, *(Directory / TEXT("DemoProjectileLifetime.txt")));
+  UE_LOG(LogTemp, Display, TEXT("%s"), *Lines);
+ }), 1.65f, false);
+}
+
+FAutoConsoleCommandWithWorldAndArgs DemoLifetimeCommand(TEXT("GirlSavior.TestDemoLifetime"),
+ TEXT("Observe automatic expiry of a clear-flight Demo projectile."),
+ FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&RunDemoLifetime));
 }
 #endif
