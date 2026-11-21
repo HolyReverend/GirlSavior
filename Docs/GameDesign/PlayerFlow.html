@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Путь через Бездну · GirlSavior</title>
+  <style>
+    :root {
+      --night: #100e11;
+      --surface: #1a161a;
+      --ink: #f8eddc;
+      --muted: #dbccbd;
+      --ash: #b7a697;
+      --gold: #ffca84;
+      --silver: #d3cdfa;
+      --bronze: #755132;
+      --line: #4d3c35;
+      --display: Georgia, "Times New Roman", serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--night);
+      color: var(--ink);
+      font: 1rem/1.6 system-ui, sans-serif;
+    }
+    img { display: block; width: 100%; }
+    a { color: inherit; }
+    :focus-visible { outline: 3px solid var(--gold); outline-offset: 5px; }
+    [id] { scroll-margin-top: 1.5rem; }
+    h1, h2, h3, p { margin: 0; }
+    h1, h2, h3 { line-height: 1.14; }
+    .wrap { width: min(1192px, calc(100% - 96px)); margin-inline: auto; }
+
+    .masthead { border-bottom: 1px solid #342825; background: #110e10; }
+    .masthead .wrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: .75rem 1.5rem;
+      min-height: 68px;
+      padding-block: .625rem;
+    }
+    .brand {
+      display: inline-flex;
+      gap: .75rem;
+      align-items: center;
+      color: #f2dbc0;
+      font: 700 1.2rem/1 var(--display);
+      letter-spacing: .045em;
+      text-decoration: none;
+    }
+    .brand span { color: var(--gold); font-size: .95rem; }
+    .masthead nav { display: flex; flex-wrap: wrap; gap: .25rem 1.5rem; }
+    .masthead nav a {
+      padding-block: .35rem;
+      color: var(--muted);
+      font-size: .875rem;
+      text-decoration: none;
+    }
+    .masthead nav a:hover, footer a:hover { color: var(--gold); text-decoration: underline; }
+
+    .hero {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      background: #0c0a0b;
+      border-bottom: 1px solid #44332a;
+    }
+    .hero .wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      min-height: 475px;
+      padding-block: 3.75rem;
+    }
+    .hero-art {
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 0 30%;
+      background: #100b0b;
+    }
+    .hero-art img { height: 100%; object-fit: cover; object-position: center 53%; }
+    .hero-art::after {
+      position: absolute;
+      inset: 0;
+      content: "";
+      background:
+        linear-gradient(90deg, #0c0a0b, #0c0a0b00 29%),
+        linear-gradient(0deg, #0c0a0b, #0c0a0b00 24%),
+        linear-gradient(270deg, #0c0a0b80, #0c0a0b00 24%);
+    }
+    .hero-copy { max-width: 32rem; }
+    .kicker {
+      color: var(--gold);
+      font-size: .75rem;
+      font-weight: 750;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: .9rem 0 1.15rem;
+      font: 700 clamp(3.4rem, 6.4vw, 6rem)/.99 var(--display);
+      letter-spacing: -.047em;
+      text-shadow: 0 3px 20px #0c0a0b;
+    }
+    h1 span { display: block; color: var(--gold); }
+    .hero-copy p:not(.kicker) {
+      max-width: 27rem;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .8rem;
+      padding: .7rem 1.2rem;
+      border: 1px solid #ffd699;
+      background: #ffca84;
+      color: #251409;
+      font-weight: 750;
+      text-align: center;
+      text-decoration: none;
+    }
+    .button:hover { background: #ffe0ae; }
+    .hero .button { margin-top: 1.65rem; }
+    .button:focus-visible { outline-color: #fff0d7; }
+
+    .route-section { padding-block: 2.5rem 4rem; }
+    .heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: .5rem 1.5rem;
+      margin-bottom: 1.35rem;
+    }
+    .heading h2, .chapter h2 {
+      font: 700 clamp(2rem, 4vw, 3rem)/1.04 var(--display);
+      letter-spacing: -.025em;
+    }
+    .heading p { color: var(--ash); }
+    .entry {
+      background: #191517;
+      border: 1px solid var(--line);
+      margin-bottom: 1.75rem;
+    }
+    .entry summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: .25rem .85rem;
+      padding: .75rem 1rem;
+      cursor: pointer;
+      list-style: none;
+    }
+    .entry summary::-webkit-details-marker { display: none; }
+    .entry summary::after {
+      content: "+";
+      margin-left: auto;
+      color: var(--gold);
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+    .entry[open] summary::after { content: "−"; }
+    .entry summary:hover { background: #241c1e; }
+    .entry strong { color: var(--gold); }
+    .entry-route { color: var(--muted); }
+    .entry ul {
+      margin: 0;
+      padding: .65rem 1.2rem 1rem 2.25rem;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .entry li + li { margin-top: .25rem; }
+    .entry ul b { color: var(--ink); }
+
+    .route {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 2rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .route li { position: relative; }
+    .route li:nth-child(2) { --accent: var(--silver); }
+    .route li:not(:last-child)::after {
+      position: absolute;
+      top: 50%;
+      left: 100%;
+      width: 2rem;
+      translate: 0 -50%;
+      color: var(--gold);
+      font-size: 1.45rem;
+      line-height: 1;
+      text-align: center;
+      content: "→";
+    }
+    .route a {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      border: 1px solid var(--bronze);
+      background: #1d1617;
+      text-decoration: none;
+    }
+    .route li:nth-child(2) a { border-color: #5f536b; background: #191722; }
+    .route a:hover { border-color: var(--accent, var(--gold)); }
+    .route a img {
+      aspect-ratio: 2.4;
+      object-fit: cover;
+      border-bottom: 1px solid var(--line);
+    }
+    .route li:nth-child(3) img { object-position: 50% 24%; }
+    .route-text { padding: .95rem 1.15rem 1.15rem; }
+    .route-title {
+      display: flex;
+      align-items: center;
+      gap: .65rem;
+      margin-bottom: .45rem;
+      font: 700 clamp(1.3rem, 2.5vw, 1.85rem)/1.1 var(--display);
+    }
+    .number {
+      display: inline-grid;
+      flex: 0 0 auto;
+      place-items: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border: 1px solid currentColor;
+      border-radius: 50%;
+      color: var(--accent, var(--gold));
+      font: 750 .85rem/1 system-ui, sans-serif;
+    }
+    .route-text p { color: var(--muted); }
+    .loop {
+      display: flex;
+      justify-content: center;
+      margin-top: .95rem;
+      color: var(--gold);
+      font-size: .9rem;
+      text-align: center;
+    }
+    .loop a { padding: .35rem .6rem; text-underline-offset: .25em; }
+
+    .chapter {
+      --accent: var(--gold);
+      padding-block: 3.5rem;
+      border-top: 1px solid var(--line);
+    }
+    #abyss {
+      --accent: var(--silver);
+      background: #14121b;
+      border-color: #45394d;
+    }
+    .chapter-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .chapter-head .number { margin-top: .25rem; width: 2.4rem; height: 2.4rem; }
+    .chapter-head p { margin-top: .5rem; color: var(--muted); }
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: .85rem;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+    .tile {
+      padding: 1.1rem 1.15rem;
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .tile h3 { margin-bottom: .45rem; color: var(--accent); font-size: 1.05rem; }
+    .tile p { color: var(--muted); }
+    #abyss .tile { background: #1b1925; border-color: #463c54; }
+    #abyss a { color: var(--ink); text-underline-offset: .2em; }
+    #abyss a:hover { color: var(--silver); }
+    .mission-list {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: .75rem 1rem;
+      margin: .6rem 0 0;
+    }
+    .mission-list dt { color: var(--ink); font-weight: 750; }
+    .mission-list dd { margin: .15rem 0 0; color: var(--muted); }
+    .missions, .decision {
+      margin-top: 1rem;
+      padding: 1rem 1.15rem;
+      border-left: 2px solid var(--accent);
+      background: #20191b;
+    }
+    .missions h3, .decision h3 { font-size: 1rem; color: var(--accent); }
+    .decision { background: #1e1a2b; }
+    .decision p { margin-top: .4rem; color: var(--muted); }
+
+    .outcomes { gap: .85rem; }
+    .outcomes .tile {
+      --accent: #cfe0bc;
+      border-top: 2px solid var(--accent);
+    }
+    .outcomes .tile:nth-child(2) { --accent: var(--gold); }
+    .outcomes .tile:nth-child(3) { --accent: #ffc4bc; }
+    .outcome-lead { display: block; margin-bottom: .2rem; color: var(--ink); }
+    .merge {
+      position: relative;
+      height: 2.8rem;
+      color: var(--gold);
+    }
+    .merge::before {
+      position: absolute;
+      inset: 0 calc(100% / 6) 50%;
+      content: "";
+      border: 1px solid var(--bronze);
+      border-top: 0;
+    }
+    .merge span {
+      position: absolute;
+      left: 50%;
+      translate: -50% 0;
+      line-height: 2.8rem;
+      font-size: 1.5rem;
+    }
+    .results {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .9rem 1.5rem;
+      border: 1px solid var(--bronze);
+      padding: 1.25rem 1.4rem;
+      background: #251b18;
+    }
+    .results h3 { margin-bottom: .35rem; font: 700 1.55rem/1.15 var(--display); }
+    .results p { color: var(--muted); }
+    .footnote { margin-top: .75rem; font-size: .9rem; color: var(--ash); }
+
+    footer {
+      padding-block: 1.5rem 2rem;
+      border-top: 1px solid var(--line);
+      background: #0c0a0b;
+      color: var(--ash);
+      font-size: .875rem;
+    }
+    footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .65rem 1.5rem; }
+    footer summary { cursor: pointer; }
+    footer ul { margin: .45rem 0 0; padding-left: 1.25rem; }
+    footer a { text-underline-offset: .2em; }
+
+    @media (max-width: 950px) {
+      .wrap { width: calc(100% - 56px); }
+      .hero .wrap { min-height: 470px; }
+      .hero-art { left: 23%; }
+      .route-text { padding-inline: .8rem; }
+      .route-title { gap: .5rem; }
+      .hero-art::after {
+        background: linear-gradient(90deg, #0c0a0b, #0c0a0b00 62%),
+                    linear-gradient(0deg, #0c0a0b, #0c0a0b00 28%);
+      }
+    }
+    @media (max-width: 790px) {
+      .wrap { width: calc(100% - 36px); }
+      .masthead .wrap { min-height: 60px; }
+      .masthead nav { gap: .15rem .8rem; }
+      .hero .wrap { align-items: flex-start; min-height: 0; padding-block: 2rem 0; }
+      .hero-copy { padding-bottom: clamp(11rem, 49vw, 20rem); }
+      .hero-art { inset: auto 0 0; height: clamp(13rem, 59vw, 24rem); }
+      .hero-art img { object-position: center 52%; }
+      .hero-art::after {
+        background: linear-gradient(180deg, #0c0a0b, #0c0a0b00 31%),
+                    linear-gradient(0deg, #0c0a0b, #0c0a0b00 13%);
+      }
+      h1 { font-size: clamp(2.75rem, 11vw, 4.5rem); }
+      .route-section, .chapter { padding-block: 2.25rem; }
+      .route { grid-template-columns: 1fr; gap: 1.85rem; }
+      .route li:not(:last-child)::after {
+        content: "↓";
+        inset: 100% 0 auto;
+        translate: none;
+        width: auto;
+        line-height: 1.85rem;
+      }
+      .route a { display: grid; grid-template-columns: minmax(88px, 35%) 1fr; }
+      .route a img { height: 100%; aspect-ratio: auto; border: 0; border-right: 1px solid var(--line); }
+      .route-text { padding: .8rem .85rem; }
+      .route-title { font-size: 1.35rem; }
+      .route-text p { font-size: .9375rem; }
+      .tiles { grid-template-columns: 1fr; }
+      .mission-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .merge::before { display: none; }
+    }
+    @media (max-width: 360px) {
+      .masthead nav { width: 100%; }
+      .masthead .wrap { flex-wrap: wrap; }
+      .route a { grid-template-columns: 1fr; }
+      .route a img { height: auto; aspect-ratio: 2.4; border-bottom: 1px solid var(--line); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body id="top">
+  <header class="masthead">
+    <div class="wrap">
+      <a class="brand" href="#top"><span aria-hidden="true">✦</span> GirlSavior</a>
+      <nav aria-label="Разделы карты">
+        <a href="#route">Маршрут</a>
+        <a href="#return">Исходы вылазки</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-art">
+        <img src="../../Arts/Visions/Camp/AbyssCamp-Chibi-v1.png" alt="">
+      </div>
+      <div class="wrap">
+        <div class="hero-copy">
+          <p class="kicker">Карта пути игрока</p>
+          <h1 id="page-title">Путь через <span>Бездну</span></h1>
+          <p>Выбери задачу, пройди тёмные комнаты и принеси добычу к Костру.</p>
+          <a class="button" href="#route">Посмотреть маршрут <span aria-hidden="true">↓</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="route-section wrap" id="route" aria-labelledby="route-title">
+      <div class="heading">
+        <h2 id="route-title">Один круг приключения</h2>
+        <p>Нажми на шаг, чтобы узнать подробности.</p>
+      </div>
+
+      <details class="entry">
+        <summary>
+          <strong>Главное меню</strong>
+          <span class="entry-route">«Новая игра» <span aria-hidden="true">→</span> стартовый Лагерь</span>
+        </summary>
+        <ul>
+          <li><b>«Продолжить»</b> открывает сохранённое место: Лагерь, непросмотренные итоги, последнюю точку сохранения в Бездне или сохранённую реплику в диалоге.</li>
+          <li><b>«Настройки»</b> меняют экран, звук, управление и скорость текста.</li>
+          <li><b>«Выйти из игры»</b> закрывает игру.</li>
+        </ul>
+      </details>
+
+      <ol class="route">
+        <li>
+          <a href="#camp">
+            <img src="../../Arts/Visions/Camp/AbyssCamp-Starting-Chibi-v1.png" alt="">
+            <div class="route-text">
+              <h3 class="route-title"><span class="number" aria-hidden="true">1</span> Лагерь</h3>
+              <p>Выбери цель и подготовься к походу.</p>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a href="#abyss">
+            <img src="../../Arts/Visions/Abyss/FirstEncounter/AbyssHallFirstEncounter-Chibi-v1.png" alt="" loading="lazy">
+            <div class="route-text">
+              <h3 class="route-title"><span class="number" aria-hidden="true">2</span> Бездна</h3>
+              <p>Иди по комнатам, сражайся и собирай добычу.</p>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a href="#return">
+            <img src="../../Arts/Visions/Interface/Expedition/ExpeditionResults-Success-Interface-v1.png" alt="" loading="lazy">
+            <div class="route-text">
+              <h3 class="route-title"><span class="number" aria-hidden="true">3</span> Возвращение</h3>
+              <p>Посмотри итоги и реши, что делать дальше.</p>
+            </div>
+          </a>
+        </li>
+      </ol>
+      <div class="loop"><a href="#camp"><span aria-hidden="true">↶</span> Снова в Лагерь, затем в новую вылазку</a></div>
+    </section>
+
+    <section class="chapter" id="camp" aria-labelledby="camp-title">
+      <div class="wrap">
+        <header class="chapter-head">
+          <span class="number" aria-hidden="true">1</span>
+          <div>
+            <h2 id="camp-title">Лагерь</h2>
+            <p>У Костра безопасно. Здесь можно подготовиться к следующей вылазке.</p>
+          </div>
+        </header>
+        <ul class="tiles">
+          <li class="tile">
+            <h3>Поговори и улучши снаряжение</h3>
+            <p>У Костра открываются истории спасённых героинь. Добычу можно потратить на героя, оружие, поддержку и постройки.</p>
+          </li>
+          <li class="tile">
+            <h3>Выбери задачу у стола</h3>
+            <p>Посмотри, что нужно сделать и какую награду можно получить.</p>
+          </li>
+          <li class="tile">
+            <h3>Соберись и отправляйся</h3>
+            <p>Возьми одно оружие и выбери до двух спасённых героинь для поддержки. В первый поход герой идёт с пистолетом и без поддержки.</p>
+          </li>
+        </ul>
+        <div class="missions">
+          <h3>Что можно делать в вылазках</h3>
+          <dl class="mission-list">
+            <div><dt>Спасение</dt><dd>Найди героиню и открой для неё портал.</dd></div>
+            <div><dt>Сбор ресурсов</dt><dd>Открой два отмеченных тайника.</dd></div>
+            <div><dt>Охота</dt><dd>Победи отмеченного сильного монстра.</dd></div>
+            <div><dt>Разведка</dt><dd>Активируй два ориентира и вынеси карту нового региона.</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" id="abyss" aria-labelledby="abyss-title">
+      <div class="wrap">
+        <header class="chapter-head">
+          <span class="number" aria-hidden="true">2</span>
+          <div>
+            <h2 id="abyss-title">Бездна</h2>
+            <p>Факел освещает дорогу. Добыча до конца вылазки лежит в сумке.</p>
+          </div>
+        </header>
+        <ol class="tiles">
+          <li class="tile">
+            <h3>Иди от комнаты к комнате</h3>
+            <p>Выбирай проходы, отбивайся от чудовищ и подбирай находки.</p>
+          </li>
+          <li class="tile">
+            <h3>Передохни у малого костра</h3>
+            <p>Если найдёшь очаг, зажги его. Он ненадолго защитит комнату. Если выпадет награда с картами, выбери усиление на эту вылазку и нажми «Применить».</p>
+          </li>
+          <li class="tile">
+            <h3>Реши, идти ли дальше</h3>
+            <p>После первых боёв ты встретишь выход. Можно <a href="#early-exit">уйти с добычей</a> или продолжить путь к цели.</p>
+          </li>
+        </ol>
+        <div class="decision">
+          <h3>Если идёшь дальше, выполни задачу</h3>
+          <p>Например, при спасении включи портал и оставайся в отмеченной зоне, пока он заряжается. Героиня уйдёт через портал, а для героя откроется <a href="#final-exit">финальный выход</a>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" id="return" aria-labelledby="return-title">
+      <div class="wrap">
+        <header class="chapter-head">
+          <span class="number" aria-hidden="true">3</span>
+          <div>
+            <h2 id="return-title">Возвращение</h2>
+            <p>У вылазки три исхода. Каждый ведёт к экрану итогов.</p>
+          </div>
+        </header>
+        <ul class="tiles outcomes">
+          <li class="tile" id="final-exit">
+            <h3>Финальный выход</h3>
+            <p><strong class="outcome-lead">Задача выполнена.</strong> На склад попадёт всё из сумки, включая награду за задачу.</p>
+          </li>
+          <li class="tile" id="early-exit">
+            <h3>Досрочный выход</h3>
+            <p><strong class="outcome-lead">Можно уйти до выполнения задачи.</strong> На склад попадёт всё, что уже в сумке.</p>
+          </li>
+          <li class="tile">
+            <h3>Герой погиб</h3>
+            <p><strong class="outcome-lead">Часть добычи теряется.</strong> Опыт и уже спасённая героиня сохраняются. Новое оружие и карта из сумки теряются.</p>
+          </li>
+        </ul>
+        <div class="merge" aria-hidden="true"><span>↓</span></div>
+        <div class="results">
+          <div>
+            <h3>Итоги вылазки</h3>
+            <p>Игра покажет, выполнена ли задача, что вынесено и что открылось.</p>
+          </div>
+          <a class="button" href="#camp"><span aria-hidden="true">↶</span> В Лагерь</a>
+        </div>
+        <p class="footnote">Если выйти из игры через паузу посреди вылазки, «Продолжить» вернёт к последней точке сохранения.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <details>
+        <summary>Источники карты</summary>
+        <ul>
+          <li><a href="ConceptDesign.md">Концепт и основной цикл</a></li>
+          <li><a href="Mechanics/Interface/GameMenus.md">Главное меню</a></li>
+          <li><a href="Mechanics/Progression/SaveProgress.md">Сохранения</a></li>
+          <li><a href="Mechanics/Camp/ExpeditionBoard.md">Стол экспедиций</a></li>
+          <li><a href="Mechanics/Expeditions/Expeditions.md">Типы вылазок</a></li>
+          <li><a href="Mechanics/Expeditions/HeroineRescue.md">Спасение героинь</a></li>
+          <li><a href="Mechanics/Expeditions/ExpeditionReturn.md">Правила возвращения</a></li>
+          <li><a href="Mechanics/Interface/ExpeditionResults.md">Итоги вылазки</a></li>
+          <li><a href="VisualDirection.md">Визуальное направление</a></li>
+        </ul>
+      </details>
+      <a href="#top">Вверх ↑</a>
+    </div>
+  </footer>
+</body>
+</html>
