@@ -11,6 +11,7 @@ Use this index when you need to find a document. Start with the file and section
 | Current code, asset wiring, and shared integration contracts | [Architecture](Technical/Architecture.md) |
 | Direct Unreal implementation work | [Implementation rules](Technical/ImplementationRules.md) |
 | Prototype scope, stage order, or planned responsibilities | [Prototype 1 plan](Technical/Prototype%231/ImplementationPlan.md) |
+| Playable combat route with ordinary enemies and waves | [Combat prototype plan](Technical/CombatPrototype/ImplementationPlan.md) |
 
 ## Prototype 1 technical tasks
 
@@ -22,6 +23,16 @@ Use this index when you need to find a document. Start with the file and section
 | Mouse aiming and cursor/input contract | [Stage 3](Technical/Prototype%231/Stage03-CharacterAiming.md) |
 | Implement shooting | [Stage 4](Technical/Prototype%231/Stage04-CharacterShooting.md) |
 | Implement defensive dash | [Stage 5](Technical/Prototype%231/Stage05-DefensiveDash.md) |
+
+## Combat prototype technical tasks
+
+| Task | Detailed document |
+| --- | --- |
+| Set up the first fight, connect the systems, and accept the playable route | [Combat prototype implementation plan](Technical/CombatPrototype/ImplementationPlan.md) |
+| Resolve hits, protection, health, barrier and death | [Damage system](Technical/CombatPrototype/DamageSystem.md) |
+| Implement the Pursuer, Shooter and Charger | [Ordinary enemies](Technical/CombatPrototype/BasicEnemies.md) |
+| Author entrances and handle reinforcement pressure | [Enemy waves](Technical/CombatPrototype/EnemyWaves.md) |
+| Wire warnings, impacts, HUD feedback and the result overlay | [Combat feedback](Technical/CombatPrototype/CombatFeedback.md) |
 
 `GameDesign/` owns concepts, mechanics, and game rules. `Technical/` owns roadmaps, implementation stages, technical architecture, and implementation details. Open the other branch only for a specific design decision or technical constraint the task needs.
 

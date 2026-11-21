@@ -17,3 +17,5 @@
 - По результатам подобрать яркость и длительность вспышки, длину следа, силу визуальной отдачи и частоту повторных звуков попадания.
 
 [Правила стрельбы](../GameDesign/Mechanics/Weapons/CharacterShootSystem.md) · [Проверка ролей оружия](GS-017-WeaponPlaytest.md) · [Проверка Факела](GS-026-TorchAndCampfires.md)
+
+Базовый прогон с пистолетом, укрытием и простым освещением описан в [приёмке фидбеков боевого прототипа](../Technical/CombatPrototype/CombatFeedback.md#acceptance-in-combatprototype-pie).

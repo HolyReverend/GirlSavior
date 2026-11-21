@@ -24,3 +24,5 @@
 - Blueprint presentation consumes native state and events.
 
 [Architecture.md](../Architecture.md) records the current implementation. Each stage owns its detailed steps, tuning choices, and checks. The [game design index](../../GameDesign/GameDesign.md) selects the gameplay rules. Open only the chosen stage and the specific prerequisite sections it needs; preserve completed work when extending the prototype.
+
+Continue from this foundation with the [combat prototype plan](../CombatPrototype/ImplementationPlan.md), which uses the shooting and dash contracts in a separate playable enemy route.

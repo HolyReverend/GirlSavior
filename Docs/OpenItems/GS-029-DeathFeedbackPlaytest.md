@@ -17,3 +17,5 @@
 - По результатам подобрать длительность падения героя, время видимости тел и силу акцента добивания.
 
 [Проверка оружия](GS-027-ShotFeedbackPlaytest.md) · [Проверка атак](GS-028-EnemyAttackFeedbackPlaytest.md) · [Проверка потерь при гибели](GS-015-ExpeditionReturnPlaytest.md) · [Проверка итогов](GS-025-ExpeditionResultsPlaytest.md)
+
+Проверки освобождения прохода и причины гибели от каждой базовой атаки включены в [приёмку боевого прототипа](../Technical/CombatPrototype/CombatFeedback.md#acceptance-in-combatprototype-pie). Сохранение причины в итогах вылазки проверяется при подключении итогов и загрузки.
