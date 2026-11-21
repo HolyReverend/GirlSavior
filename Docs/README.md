@@ -6,6 +6,7 @@ Use this index when you need to find a document. Start with the file and section
 | --- | --- |
 | Overall game concept | [Concept](GameDesign/ConceptDesign.md) |
 | A specific gameplay mechanic | Choose it in the [game design index](GameDesign/GameDesign.md). |
+| Current implementation status of gameplay mechanics | [Mechanics checklist](GameDesign/MechanicsChecklist.md) |
 | Open decisions, risks, and checks by topic | [Open-item index](OpenItems/Index.md) |
 | Current code, asset wiring, and shared integration contracts | [Architecture](Technical/Architecture.md) |
 | Direct Unreal implementation work | [Implementation rules](Technical/ImplementationRules.md) |
