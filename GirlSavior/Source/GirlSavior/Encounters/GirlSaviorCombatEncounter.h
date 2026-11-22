@@ -72,7 +72,13 @@ public:
     bool IsPointInSafeArea(const FVector& Point) const;
     bool CrossesSafeArea(const FVector& Start, const FVector& End, float Radius = 0.f) const;
     bool IsWarningVisible(TConstArrayView<FVector> FloorPolygon) const;
+    bool IsBodyInView(const FVector& Center, float Radius, float HalfHeight) const;
+    bool IsStraightWarningVisible(const FVector& Start, const FVector& End, float StripeHalfWidth) const;
     int64 AllocateAttackId();
+    bool HasDangerousAttack() const { return DangerousAttackId != 0; }
+    bool TryAcquireDangerousAttack(int64 AttackId, UObject& Holder);
+    bool TransferDangerousAttack(int64 AttackId, const UObject& Holder, UObject& NewHolder);
+    void ReleaseDangerousAttack(int64 AttackId, const UObject& Holder);
     void UnregisterEnemy(AGirlSaviorEnemyCharacter* Enemy);
     bool RegisterProjectile(AGirlSaviorTestProjectile* Projectile);
     void UnregisterProjectile(AGirlSaviorTestProjectile* Projectile);
@@ -82,9 +88,12 @@ protected:
 
 private:
     bool InitializeRun(AGirlSaviorCharacter& Pawn);
+    bool BindHero(AGirlSaviorCharacter& Pawn);
+    void UnbindHero();
     void BindAdmission(UGirlSaviorDamageReceiverComponent& Receiver);
     EGirlSaviorDamageOutcome CheckDamageBoundary(const AActor& Target, const FGirlSaviorDamageSpec& Spec) const;
     void CaptureView();
+    bool ProjectIntoView(const FVector& Point, FVector2D& Pixel, bool bRequireClearRay) const;
     void OnHeroDied(const FGirlSaviorDamageResult& Result);
     void CloseRun(EGirlSaviorRunState TerminalState);
 
@@ -98,6 +107,8 @@ private:
     EGirlSaviorRunState RunState = EGirlSaviorRunState::Waiting;
     double OutcomeVisibleAt = 0.0;
     int64 LastAttackId = 0;
+    int64 DangerousAttackId = 0;
+    TWeakObjectPtr<UObject> DangerousAttackHolder;
     bool bInitialized = false;
     bool bInitializationAttempted = false;
     bool bViewValid = false;

@@ -60,6 +60,7 @@ public:
         Check(Hit(EGirlSaviorDamageDelivery::DirectMelee, 10).Outcome == EGirlSaviorDamageOutcome::BlockedBySafeArea
             && Receiver().GetHealth() == 100.0, TEXT("Incoming damage leaves health intact in the safe pocket"));
         InitialEnemyLocation = Enemy->GetActorLocation();
+        InitialLiveEnemies = Encounter->GetLiveEnemyCount();
         Deadline = InWorld.GetTimeSeconds() + 18.0;
         Send(EKeys::W, IE_Pressed);
         Send(EKeys::A, IE_Pressed);
@@ -314,7 +315,7 @@ private:
             if (!Enemy->GetDamageReceiver()->IsAlive())
             {
                 Check(Enemy->GetDamageReceiver()->GetLastLethalResult().Spec.SourceFaction == EGirlSaviorFaction::Hero
-                    && Encounter->GetLiveEnemyCount() == 0
+                    && Encounter->GetLiveEnemyCount() == InitialLiveEnemies - 1
                     && !Enemy->GetCapsuleComponent()->IsQueryCollisionEnabled(),
                     TEXT("Normal LMB shots kill the Pursuer, unregister it and clear body collision"));
                 Send(EKeys::LeftMouseButton, IE_Released);
@@ -381,6 +382,7 @@ private:
     double Deadline = 0.0;
     double HealthBeforeSwing = 0.0;
     int32 Checks = 0;
+    int32 InitialLiveEnemies = 0;
     int32 Failures = 0;
     bool bDefeat;
 };

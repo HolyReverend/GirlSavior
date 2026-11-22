@@ -5,6 +5,8 @@
 #include "GirlSaviorEnemyAIController.generated.h"
 
 class AGirlSaviorCombatEncounter;
+class AGirlSaviorCharacter;
+class AGirlSaviorEnemyCharacter;
 
 UCLASS()
 class GIRLSAVIOR_API AGirlSaviorEnemyAIController : public AAIController
@@ -22,9 +24,15 @@ protected:
     virtual void Tick(float DeltaTime) override;
 
 private:
-    bool PathCrossesSafeArea(const FNavPathSharedPtr& Path) const;
+    bool IsPathAdmissible(const AGirlSaviorEnemyCharacter& Body, const FNavPathSharedPtr& Path,
+        int32 FirstPoint) const;
+    bool FindThreatPosition(const AGirlSaviorEnemyCharacter& Body, const AGirlSaviorCharacter& Hero,
+        FVector& OutGoal, bool& bOutCanThreaten) const;
 
     TWeakObjectPtr<AGirlSaviorCombatEncounter> OwningEncounter;
     FVector LastRequestedGoal = FVector::ZeroVector;
+    FVector LastTargetPosition = FVector::ZeroVector;
     double NextQueryTime = 0.0;
+    bool bFollowingPosition = false;
+    bool bFollowingThreatPosition = false;
 };

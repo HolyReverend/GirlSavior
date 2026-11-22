@@ -1,6 +1,6 @@
 # Current project architecture
 
-The project targets Unreal Engine 5.9 Preview (Epic Games Launcher, verified build 5.9.0 CL 60738873). It has a movement and shooting regression level and a separate first-fight level that uses the same controls and camera.
+The project targets Unreal Engine 5.9 Preview (Epic Games Launcher, verified build 5.9.0 CL 60738873). It has a movement and shooting regression level and a separate combat fixture level that uses the same controls and camera.
 
 ## Entry points and assets
 
@@ -18,7 +18,7 @@ Blueprints under `Content/Blueprints/Core/` and `Characters/` configure the matc
 
 `BP_PrototypeCharacter` assigns `Content/Data/DataAssets/Combat/DA_PrototypeDash` to its movement component.
 
-`/Game/Maps/TestMaps/CombatPrototype` uses `BP_CombatPrototypeGameMode` and `BP_CombatPrototypeCharacter`, which inherit the Demo controls and camera. The combat Blueprint assigns `DA_HeroCombatPrototype`, `DA_CombatPistol`, and `BP_CombatPistolProjectile`. The map gives the encounter explicit links to its safe pocket, one `BP_EnemyPursuer` with `DA_EnemyPursuer`, and a health target with `DA_CombatTarget`. The saved navmesh connects the arena and its entrance.
+`/Game/Maps/TestMaps/CombatPrototype` uses `BP_CombatPrototypeGameMode` and `BP_CombatPrototypeCharacter`, which inherit the Demo controls and camera. The combat Blueprint assigns `DA_HeroCombatPrototype`, `DA_CombatPistol`, and `BP_CombatPistolProjectile`. The safe pocket opens onto the Pursuer arena, with a health target and the exit. Three rooms through the north doorway contain a Shooter, a Charger, and one of each together. The five enemies reference explicit fixture bounds and role Data Assets. The Shooter definition supplies `BP_EnemyProjectile`. Saved navmesh connects the four rooms.
 
 ## Native code map
 
@@ -40,11 +40,11 @@ Paths below are relative to `GirlSavior/Source/GirlSavior/`. Entries ending in `
 | [Camera/GirlSaviorPrototypeWarningFixture.*](../../GirlSavior/Source/GirlSavior/Camera/GirlSaviorPrototypeWarningFixture.cpp) | Provide a timed warning/impact fixture for camera visibility checks. |
 | [Tests/](../../GirlSavior/Source/GirlSavior/Tests/) | Movement, camera, aiming, and combat console probes plus room-framing and fire-schedule Automation tests. |
 | [Combat/GirlSaviorFireComponent.*](../../GirlSavior/Source/GirlSavior/Combat/GirlSaviorFireComponent.cpp), [GirlSaviorFireSchedule.h](../../GirlSavior/Source/GirlSavior/Combat/GirlSaviorFireSchedule.h) | Preserve ordered short clicks and a game-time deadline; launch at most once per post-aim tick. |
-| [Combat/GirlSaviorTestProjectile.*](../../GirlSavior/Source/GirlSavior/Combat/GirlSaviorTestProjectile.cpp) | Launch a swept sphere with a source snapshot, resolve its first blocker, and own its range and completion. The Demo child keeps its original lifetime and impact event. |
+| [Combat/GirlSaviorTestProjectile.*](../../GirlSavior/Source/GirlSavior/Combat/GirlSaviorTestProjectile.cpp) | Launch a swept sphere with a source snapshot and resolve its first blocker or expiry. An enemy shot owns its dangerous slot and short trail until completion. The Demo child keeps its original lifetime and impact event. |
 | [Combat/GirlSaviorDamageReceiverComponent.*](../../GirlSavior/Source/GirlSavior/Combat/GirlSaviorDamageReceiverComponent.cpp) | Admit typed damage, check live defenses, commit barrier and health, and publish one lethal snapshot and resolved result. Legacy Demo fixtures accumulate accepted damage. |
 | [Combat/GirlSaviorSafeArea.*](../../GirlSavior/Source/GirlSavior/Combat/GirlSaviorSafeArea.cpp) | Track overlapping controlled pawns and cancel firing while any safe area applies. |
-| [Enemies/](../../GirlSavior/Source/GirlSavior/Enemies/) | Define the Pursuer's tuning, request complete navigation paths, and use one cover-clipped sector for preparation and melee contact. |
-| [Encounters/](../../GirlSavior/Source/GirlSavior/Encounters/) | Own the first-room and exit triggers, safe boundary, actor registries, terminal states, training target, and retry HUD. |
+| [Enemies/](../../GirlSavior/Source/GirlSavior/Enemies/) | Own role tuning, complete navigation paths and alternate attack positions, warning geometry, and the shared attack phase machine. Pursuer resolves a sector, Shooter launches a swept projectile, and Charger advances its capsule only along the locked stripe. |
+| [Encounters/](../../GirlSavior/Source/GirlSavior/Encounters/) | Own encounter triggers, safe boundary, actor registries, the constrained combat view, the single dangerous slot, terminal states, the training target, and the retry HUD. |
 
 ## Integration contracts
 
@@ -55,6 +55,7 @@ Paths below are relative to `GirlSavior/Source/GirlSavior/`. Entries ending in `
 - Dash consumes a fresh Left Shift edge after Enhanced Input resolves the current WASD direction. The movement component snapshots speed and deadlines and commits short grounded capsule sweeps. The shared damage receiver queries `IsDashProtected()` at contact and blocks direct projectile, melee, and charge damage during the protection window. Area and floor damage use the usual resistance, barrier, and health calculation.
 - `PrototypeProjectile` and `EnemyProjectile` are object channels 2 and 3. Hero and enemy capsules block the opposing projectile channel in combat. The Demo projectile keeps its Pawn response. `CombatOccluder` is trace channel 4 for authored blockers and the safe boundary.
 - The encounter activates when the hero leaves the safe pocket and reaches the first room. Terminal transitions close gameplay input and clear pending threats after the current dispatch. The outcome panel displays the lethal cause and reloads the current map on retry.
+- Shooter and Charger reserve the encounter's dangerous slot only after a visible warning is possible. Only the matching attack ID and holder can transfer or release it. When a Shooter launches, the projectile takes ownership before it moves. Placed enemies only engage a hero within their assigned fixture bounds.
 - Camera tuning belongs in `DA_CameraManager`. After same-pawn teleports, call `RequestFollowSnap()`.
 - Room framing uses room footprint geometry and `WallInset`. Side gaps within the inset can join across overlapping sides. Room authoring supports yaw rotation and positive scale with world-up orientation.
 - `CameraOcclusion` is `ECC_GameTraceChannel1`, default Ignore, configured in `Config/DefaultEngine.ini`. Fadeable components overlap it, carry `CameraFade`, and use custom primitive data slot 0 in the prototype fade material. Gameplay blocking remains on separate geometry.

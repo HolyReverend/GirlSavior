@@ -5,10 +5,14 @@
 #include "Engine/DataAsset.h"
 #include "GirlSaviorEnemyDefinition.generated.h"
 
+class AGirlSaviorTestProjectile;
+
 UENUM(BlueprintType)
 enum class EGirlSaviorEnemyRole : uint8
 {
-    Pursuer
+    Pursuer,
+    Shooter,
+    Charger
 };
 
 USTRUCT(BlueprintType)
@@ -39,6 +43,90 @@ struct FGirlSaviorPursuerTuning
     // Физический урон одного успешного удара до защиты и сопротивления героя.
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
     float PhysicalDamage = 10.f;
+};
+
+USTRUCT(BlueprintType)
+struct FGirlSaviorShooterTuning
+{
+    GENERATED_BODY()
+
+    // Максимальная дистанция между центрами Стрелка и героя для начала прицеливания.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "cm"))
+    float Range = 900.f;
+
+    // Дистанция до героя, на которой Стрелок ищет запасную огневую позицию.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "cm"))
+    float PreferredDistance = 700.f;
+
+    // Длительность прицеливания перед выстрелом, включая время с зафиксированной линией.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "s"))
+    float Preparation = 0.85f;
+
+    // Минимальное время показа зафиксированной линии перед выстрелом.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "s"))
+    float LockedTail = 0.35f;
+
+    // Пауза после выстрела, прежде чем Стрелок снова сможет идти и прицеливаться.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "s"))
+    float Recovery = 0.8f;
+
+    // Физический урон одного попадания снаряда до защиты героя.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
+    float PhysicalDamage = 12.f;
+
+    // Радиус сферы столкновения снаряда. Влияет на зазор при прицеливании и полёте.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "cm"))
+    float ProjectileRadius = 12.f;
+
+    // Скорость полёта снаряда вдоль зафиксированной линии.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "cm/s"))
+    float ProjectileSpeed = 1100.f;
+
+    // Максимальный путь снаряда до исчезновения при отсутствии препятствий.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "cm"))
+    float ProjectileRange = 1100.f;
+
+    // Класс снаряда со своим визуальным представлением и эффектом попадания.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
+    TSubclassOf<AGirlSaviorTestProjectile> ProjectileClass;
+};
+
+USTRUCT(BlueprintType)
+struct FGirlSaviorChargerTuning
+{
+    GENERATED_BODY()
+
+    // Минимальная дистанция между центрами Тарана и героя для начала разбега.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "cm"))
+    float MinRange = 350.f;
+
+    // Максимальная дистанция между центрами Тарана и героя для начала разбега.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "cm"))
+    float MaxRange = 750.f;
+
+    // Длительность подготовки разбега, включая время с зафиксированной полосой.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "s"))
+    float Preparation = 1.0f;
+
+    // Минимальное время показа зафиксированной полосы перед началом движения.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "s"))
+    float LockedTail = 0.40f;
+
+    // Пауза после остановки, прежде чем Таран снова сможет идти и атаковать.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "s"))
+    float Recovery = 1.1f;
+
+    // Физический урон первого столкновения с героем во время разбега.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack")
+    float PhysicalDamage = 18.f;
+
+    // Скорость движения тела по зафиксированной полосе.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "cm/s"))
+    float ChargeSpeed = 1300.f;
+
+    // Максимальный путь центра Тарана при разбеге без препятствий.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attack", meta = (Units = "cm"))
+    float MaxTravel = 750.f;
 };
 
 UCLASS(BlueprintType)
@@ -72,6 +160,14 @@ public:
     // Дальность, угол, фазы замаха и урон сектора Преследователя.
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy")
     FGirlSaviorPursuerTuning Pursuer;
+
+    // Дистанции, фазы прицеливания, урон и параметры снаряда Стрелка.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy")
+    FGirlSaviorShooterTuning Shooter;
+
+    // Дистанции начала, фазы подготовки, урон и параметры разбега Тарана.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enemy")
+    FGirlSaviorChargerTuning Charger;
 
     bool IsValidForSpawn() const;
 

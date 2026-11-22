@@ -10,6 +10,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Core/GirlSaviorPlayerController.h"
 #include "Encounters/GirlSaviorCombatTarget.h"
+#include "Enemies/GirlSaviorEnemyAttackComponent.h"
 #include "Enemies/GirlSaviorEnemyCharacter.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/LocalPlayer.h"
@@ -48,28 +49,15 @@ AGirlSaviorCombatEncounter::AGirlSaviorCombatEncounter()
 // Wait until the local pawn exists, then bind receiver admission before opening combat.
 bool AGirlSaviorCombatEncounter::InitializeRun(AGirlSaviorCharacter& Pawn)
 {
-    auto* Controller = Cast<AGirlSaviorPlayerController>(Pawn.GetController());
-    if (!Controller)
-    {
-        return false;
-    }
-    Controller->SetFireAllowed(false);
-    if (!IsValid(SafeArea) || PlacedEnemies.IsEmpty()
-        || !Pawn.GetFireComponent()->SetCombatEncounter(this)
-        || !Pawn.GetDamageReceiver()->InitializeVitals(Pawn.CombatVitals, EGirlSaviorFaction::Hero))
+    if (!IsValid(SafeArea) || PlacedEnemies.IsEmpty() || !BindHero(Pawn))
     {
         UE_LOG(LogGirlSaviorEncounter, Error, TEXT("%s is missing a safe area, enemy, hero vitals or configured pistol."), *GetName());
         return false;
     }
 
-    Hero = &Pawn;
-    Pawn.GetCapsuleComponent()->SetCollisionResponseToChannel(GirlSaviorCombatChannels::EnemyProjectile, ECR_Block);
     SafeArea->SafeVolume->SetCollisionResponseToChannel(GirlSaviorCombatChannels::HeroProjectile, ECR_Block);
     SafeArea->SafeVolume->SetCollisionResponseToChannel(GirlSaviorCombatChannels::EnemyProjectile, ECR_Block);
     SafeArea->SafeVolume->SetCollisionResponseToChannel(GirlSaviorCombatChannels::Occluder, ECR_Block);
-    SafeArea->RegisterPawn(SafeArea->SafeVolume->IsOverlappingActor(&Pawn) ? &Pawn : nullptr);
-    BindAdmission(*Pawn.GetDamageReceiver());
-    Pawn.GetDamageReceiver()->OnDied.AddUObject(this, &ThisClass::OnHeroDied);
 
     for (AGirlSaviorCombatTarget* Target : PlacedTargets)
     {
@@ -92,6 +80,45 @@ bool AGirlSaviorCombatEncounter::InitializeRun(AGirlSaviorCharacter& Pawn)
     }
     UE_LOG(LogGirlSaviorEncounter, Display, TEXT("First fight standing by. Enemies=%d"), LiveEnemies.Num());
     return true;
+}
+
+// Bind a newly possessed prototype hero without resetting an already initialized receiver.
+bool AGirlSaviorCombatEncounter::BindHero(AGirlSaviorCharacter& Pawn)
+{
+    auto* Controller = Cast<AGirlSaviorPlayerController>(Pawn.GetController());
+    auto* Receiver = Pawn.GetDamageReceiver();
+    if (!Controller || !Controller->IsLocalController()
+        || !Pawn.GetFireComponent()->SetCombatEncounter(this))
+    {
+        return false;
+    }
+    if (Receiver->HasVitals()
+        ? Receiver->GetFaction() != EGirlSaviorFaction::Hero || !Receiver->IsAlive()
+        : !Receiver->InitializeVitals(Pawn.CombatVitals, EGirlSaviorFaction::Hero))
+    {
+        Pawn.GetFireComponent()->SetCombatEncounter(nullptr);
+        return false;
+    }
+
+    Hero = &Pawn;
+    Pawn.GetCapsuleComponent()->SetCollisionResponseToChannel(GirlSaviorCombatChannels::EnemyProjectile, ECR_Block);
+    SafeArea->RegisterPawn(SafeArea->SafeVolume->IsOverlappingActor(&Pawn) ? &Pawn : nullptr);
+    BindAdmission(*Receiver);
+    Receiver->OnDied.AddUObject(this, &ThisClass::OnHeroDied);
+    Controller->SetFireAllowed(RunState == EGirlSaviorRunState::Active && !SafeArea->SafeVolume->IsOverlappingActor(&Pawn));
+    return true;
+}
+
+void AGirlSaviorCombatEncounter::UnbindHero()
+{
+    if (AGirlSaviorCharacter* Previous = Hero.Get())
+    {
+        Previous->GetDamageReceiver()->OnDied.RemoveAll(this);
+        Previous->GetDamageReceiver()->DamageAdmission.Unbind();
+        Previous->GetFireComponent()->SetCombatEncounter(nullptr);
+        Previous->GetCapsuleComponent()->SetCollisionResponseToChannel(GirlSaviorCombatChannels::EnemyProjectile, ECR_Ignore);
+    }
+    Hero.Reset();
 }
 
 void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
@@ -128,11 +155,36 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
             bInitialized = InitializeRun(*Pawn);
         }
     }
-    if (!bInitialized || !Hero.IsValid())
+    if (!bInitialized)
     {
         return;
     }
 
+    if (RunState == EGirlSaviorRunState::Waiting || RunState == EGirlSaviorRunState::Active)
+    {
+        APawn* Current = UGameplayStatics::GetPlayerPawn(this, 0);
+        if (Current != Hero.Get())
+        {
+            const auto Enemies = LiveEnemies;
+            for (const auto& Enemy : Enemies)
+            {
+                if (Enemy.IsValid())
+                {
+                    Enemy->GetAttackComponent()->CancelForTargetChange();
+                }
+            }
+            UnbindHero();
+            if (auto* Pawn = Cast<AGirlSaviorCharacter>(Current))
+            {
+                BindHero(*Pawn);
+            }
+        }
+    }
+    if (!Hero.IsValid())
+    {
+        bViewValid = false;
+        return;
+    }
     CaptureView();
     switch (RunState)
     {
@@ -187,10 +239,13 @@ EGirlSaviorDamageOutcome AGirlSaviorCombatEncounter::CheckDamageBoundary(
 
 bool AGirlSaviorCombatEncounter::CanEnemyEngage(const AActor& Source) const
 {
+    const auto* Enemy = Cast<AGirlSaviorEnemyCharacter>(&Source);
     return RunState == EGirlSaviorRunState::Active && Hero.IsValid() && IsValid(SafeArea)
-        && Hero->GetDamageReceiver()->IsAlive() && !IsPointInSafeArea(Source.GetActorLocation())
+        && Hero->IsLocallyControlled() && Hero->GetDamageReceiver()->IsAlive() && !IsPointInSafeArea(Source.GetActorLocation())
         && !IsPointInSafeArea(Hero->GetActorLocation())
-        && !SafeArea->SafeVolume->IsOverlappingActor(Hero.Get());
+        && !SafeArea->SafeVolume->IsOverlappingActor(Hero.Get())
+        && (!Enemy || (Enemy->IsInFixtureRoom(Source.GetActorLocation())
+            && Enemy->IsInFixtureRoom(Hero->GetActorLocation())));
 }
 
 bool AGirlSaviorCombatEncounter::IsPointInSafeArea(const FVector& Point) const
@@ -228,19 +283,10 @@ void AGirlSaviorCombatEncounter::CaptureView()
 // A warned floor patch needs a sample inside the constrained view with a clear camera ray.
 bool AGirlSaviorCombatEncounter::IsWarningVisible(TConstArrayView<FVector> FloorPolygon) const
 {
-    if (!bViewValid)
-    {
-        return false;
-    }
-    const FIntRect& Rect = View.GetConstrainedViewRect();
-    const FMatrix ViewProjection = View.ComputeViewProjectionMatrix();
     for (const FVector& Point : FloorPolygon)
     {
-        const FVector Sample = Point + FVector(0, 0, 3);
         FVector2D Pixel;
-        if (FSceneView::ProjectWorldToScreen(Sample, Rect, ViewProjection, Pixel)
-            && Pixel.X >= Rect.Min.X && Pixel.X < Rect.Max.X && Pixel.Y >= Rect.Min.Y && Pixel.Y < Rect.Max.Y
-            && !GetWorld()->LineTraceTestByChannel(ViewOrigin, Sample, GirlSaviorCombatChannels::Occluder))
+        if (ProjectIntoView(Point + FVector(0, 0, 3), Pixel, true))
         {
             return true;
         }
@@ -248,9 +294,104 @@ bool AGirlSaviorCombatEncounter::IsWarningVisible(TConstArrayView<FVector> Floor
     return false;
 }
 
+bool AGirlSaviorCombatEncounter::ProjectIntoView(const FVector& Point, FVector2D& Pixel, bool bRequireClearRay) const
+{
+    if (!bViewValid)
+    {
+        return false;
+    }
+    const FIntRect& Rect = View.GetConstrainedViewRect();
+    return FSceneView::ProjectWorldToScreen(Point, Rect, View.ComputeViewProjectionMatrix(), Pixel)
+        && Pixel.X >= Rect.Min.X && Pixel.X < Rect.Max.X && Pixel.Y >= Rect.Min.Y && Pixel.Y < Rect.Max.Y
+        && (!bRequireClearRay
+            || !GetWorld()->LineTraceTestByChannel(ViewOrigin, Point, GirlSaviorCombatChannels::Occluder));
+}
+
+bool AGirlSaviorCombatEncounter::IsBodyInView(const FVector& Center, float Radius, float HalfHeight) const
+{
+    FVector2D Pixel;
+    for (const FVector& Offset : {FVector::ZeroVector, FVector(Radius, 0, 0), FVector(-Radius, 0, 0),
+        FVector(0, Radius, 0), FVector(0, -Radius, 0), FVector(0, 0, HalfHeight), FVector(0, 0, -HalfHeight)})
+    {
+        if (ProjectIntoView(Center + Offset, Pixel, true))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Require a continuous visible section, including the edges of a stripe at one sample.
+bool AGirlSaviorCombatEncounter::IsStraightWarningVisible(
+    const FVector& Start, const FVector& End, float StripeHalfWidth) const
+{
+    const FVector Edge = FVector::CrossProduct(FVector::UpVector, (End - Start).GetSafeNormal2D()) * StripeHalfWidth;
+    FVector2D PreviousPixel = FVector2D::ZeroVector;
+    bool bPreviousVisible = false;
+    bool bPreviousEdgesVisible = false;
+    for (int32 Index = 0; Index <= 4; ++Index)
+    {
+        const FVector Point = FMath::Lerp(Start, End, Index * 0.25) + FVector(0, 0, 3);
+        FVector2D Pixel;
+        FVector2D EdgePixel;
+        const bool bVisible = ProjectIntoView(Point, Pixel, true);
+        const bool bEdgesVisible = bVisible && (StripeHalfWidth <= 0.f
+            || (ProjectIntoView(Point - Edge, EdgePixel, true) && ProjectIntoView(Point + Edge, EdgePixel, true)));
+        if (bVisible && bPreviousVisible && (bEdgesVisible || bPreviousEdgesVisible)
+            && FVector2D::DistSquared(PreviousPixel, Pixel) >= FMath::Square(24.0))
+        {
+            return true;
+        }
+        if (bVisible)
+        {
+            PreviousPixel = Pixel;
+        }
+        bPreviousVisible = bVisible;
+        bPreviousEdgesVisible = bEdgesVisible;
+    }
+    return false;
+}
+
 int64 AGirlSaviorCombatEncounter::AllocateAttackId()
 {
     return ++LastAttackId;
+}
+
+bool AGirlSaviorCombatEncounter::TryAcquireDangerousAttack(int64 AttackId, UObject& Holder)
+{
+    if (RunState != EGirlSaviorRunState::Active || AttackId <= 0 || HasDangerousAttack() || !IsValid(&Holder))
+    {
+        return false;
+    }
+    DangerousAttackId = AttackId;
+    DangerousAttackHolder = &Holder;
+    UE_LOG(LogGirlSaviorEncounter, Log, TEXT("Dangerous attack %lld acquired by %s."), AttackId, *Holder.GetName());
+    return true;
+}
+
+bool AGirlSaviorCombatEncounter::TransferDangerousAttack(int64 AttackId, const UObject& Holder, UObject& NewHolder)
+{
+    if (RunState != EGirlSaviorRunState::Active || AttackId <= 0 || DangerousAttackId != AttackId
+        || !DangerousAttackHolder.HasSameIndexAndSerialNumber(TWeakObjectPtr<const UObject>(&Holder))
+        || !IsValid(&NewHolder))
+    {
+        return false;
+    }
+    DangerousAttackHolder = &NewHolder;
+    UE_LOG(LogGirlSaviorEncounter, Log, TEXT("Dangerous attack %lld transferred to %s."), AttackId, *NewHolder.GetName());
+    return true;
+}
+
+void AGirlSaviorCombatEncounter::ReleaseDangerousAttack(int64 AttackId, const UObject& Holder)
+{
+    // Compare weak object identity even if the holder is already being destroyed.
+    if (AttackId > 0 && DangerousAttackId == AttackId
+        && DangerousAttackHolder.HasSameIndexAndSerialNumber(TWeakObjectPtr<const UObject>(&Holder)))
+    {
+        DangerousAttackId = 0;
+        DangerousAttackHolder.Reset();
+        UE_LOG(LogGirlSaviorEncounter, Log, TEXT("Dangerous attack %lld released by %s."), AttackId, *Holder.GetName());
+    }
 }
 
 void AGirlSaviorCombatEncounter::UnregisterEnemy(AGirlSaviorEnemyCharacter* Enemy)
@@ -290,6 +431,8 @@ void AGirlSaviorCombatEncounter::CloseRun(EGirlSaviorRunState TerminalState)
         return;
     }
     RunState = TerminalState;
+    DangerousAttackId = 0;
+    DangerousAttackHolder.Reset();
     OutcomeVisibleAt = GetWorld()->GetTimeSeconds() + (TerminalState == EGirlSaviorRunState::Defeated ? 1.25 : 0.0);
     if (auto* Controller = Cast<AGirlSaviorPlayerController>(Hero->GetController()))
     {
@@ -331,12 +474,11 @@ bool AGirlSaviorCombatEncounter::Retry()
 
 void AGirlSaviorCombatEncounter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    if (Hero.IsValid())
-    {
-        Hero->GetDamageReceiver()->OnDied.RemoveAll(this);
-    }
+    UnbindHero();
     LiveProjectiles.Reset();
     LiveEnemies.Reset();
     PendingRetirements.Reset();
+    DangerousAttackId = 0;
+    DangerousAttackHolder.Reset();
     Super::EndPlay(EndPlayReason);
 }

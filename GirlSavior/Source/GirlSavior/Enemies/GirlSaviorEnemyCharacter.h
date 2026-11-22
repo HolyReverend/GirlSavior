@@ -5,6 +5,7 @@
 #include "GirlSaviorEnemyCharacter.generated.h"
 
 class AGirlSaviorCombatEncounter;
+class ATriggerBox;
 class UGirlSaviorDamageReceiverComponent;
 class UGirlSaviorEnemyAttackComponent;
 class UGirlSaviorEnemyDefinition;
@@ -23,6 +24,10 @@ public:
     UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Combat")
     TObjectPtr<AGirlSaviorCombatEncounter> Encounter;
 
+    // Placed fixtures share this volume with the hero before they can engage.
+    UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Combat")
+    TObjectPtr<ATriggerBox> FixtureRoomBounds;
+
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
     TObjectPtr<UGirlSaviorEnemyDefinition> Definition;
 
@@ -31,6 +36,7 @@ public:
 
     bool InitializeForEncounter(AGirlSaviorCombatEncounter& InEncounter);
     void StopForEncounter();
+    bool IsInFixtureRoom(const FVector& Location) const;
 
     UFUNCTION(BlueprintPure, Category = "Combat")
     UGirlSaviorDamageReceiverComponent* GetDamageReceiver() const { return DamageReceiver; }

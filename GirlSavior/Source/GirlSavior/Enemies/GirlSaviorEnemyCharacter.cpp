@@ -1,6 +1,7 @@
 #include "Enemies/GirlSaviorEnemyCharacter.h"
 
 #include "Combat/GirlSaviorDamageReceiverComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/LineBatchComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -10,6 +11,7 @@
 #include "Enemies/GirlSaviorEnemyAttackComponent.h"
 #include "Enemies/GirlSaviorEnemyDefinition.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/TriggerBox.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -88,9 +90,21 @@ bool AGirlSaviorEnemyCharacter::InitializeForEncounter(AGirlSaviorCombatEncounte
     GetCharacterMovement()->MaxWalkSpeed = Definition->WalkSpeed;
     DamageReceiver->OnDied.AddUObject(this, &AGirlSaviorEnemyCharacter::HandleDeath);
     bEncounterInitialized = true;
-    Attack->ActivateForEncounter(InEncounter, Definition->Pursuer, *AttackVisual);
+    Attack->ActivateForEncounter(InEncounter, *Definition, *AttackVisual);
     AI->ActivateForEncounter(InEncounter);
     return true;
+}
+
+bool AGirlSaviorEnemyCharacter::IsInFixtureRoom(const FVector& Location) const
+{
+    if (!FixtureRoomBounds)
+    {
+        return true;
+    }
+    const auto* Box = CastChecked<UBoxComponent>(FixtureRoomBounds->GetCollisionComponent());
+    const FVector Extent = Box->GetScaledBoxExtent();
+    const FVector Local = Box->GetComponentTransform().InverseTransformPositionNoScale(Location);
+    return FBox(-Extent, Extent).IsInsideOrOn(Local);
 }
 
 // Stop live behavior for death and terminal cleanup while the actor can still present cues.
@@ -101,8 +115,8 @@ void AGirlSaviorEnemyCharacter::StopForEncounter()
     {
         AI->StopForEncounter();
     }
-    GetCharacterMovement()->DisableMovement();
     Attack->StopForEncounter();
+    GetCharacterMovement()->DisableMovement();
 }
 
 void AGirlSaviorEnemyCharacter::HandleDeath(const FGirlSaviorDamageResult& Result)

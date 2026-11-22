@@ -8,6 +8,7 @@
 class USphereComponent;
 class UStaticMeshComponent;
 class UProjectileMovementComponent;
+class ULineBatchComponent;
 class AGirlSaviorCombatEncounter;
 class AGirlSaviorTestProjectile;
 
@@ -18,6 +19,7 @@ struct FGirlSaviorProjectileLaunch
 	float Radius = 0.f;
 	float Speed = 0.f;
 	float MaxDistance = 0.f;
+	bool bResolveClippedEndContact = false;
 };
 
 UENUM(BlueprintType)
@@ -70,7 +72,9 @@ public:
 
 	// Returns the shot actor when consumed, including a shot stopped immediately by cover.
 	static AGirlSaviorTestProjectile* SpawnCombatProjectile(UWorld& World, TSubclassOf<AGirlSaviorTestProjectile> Class,
-		AActor* Owner, const FVector& Direction, const FGirlSaviorProjectileLaunch& Launch, AGirlSaviorCombatEncounter& Encounter);
+		AActor* Owner, const FVector& Direction, const FGirlSaviorProjectileLaunch& Launch,
+		AGirlSaviorCombatEncounter& Encounter, UObject* SlotHolder = nullptr,
+		FGirlSaviorProjectileCompleted::FDelegate Completion = {});
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Prototype|Projectile")
 	TObjectPtr<USphereComponent> CollisionSphere;
@@ -109,6 +113,7 @@ protected:
 private:
 	void ConfigureCombatShot();
 	void StopAtInitialBlocker();
+	bool TryResolveClippedEndContact();
 	void Complete(EGirlSaviorProjectileCompletion Reason, const FHitResult* Hit = nullptr);
 
 	// Resolve only the first blocking stop, independently of damage acceptance.
@@ -116,6 +121,8 @@ private:
 	void HandleProjectileStop(const FHitResult& Hit);
 
 	FGirlSaviorProjectileLaunch LaunchSnapshot;
+	UPROPERTY()
+	TObjectPtr<ULineBatchComponent> EnemyTrail;
 	TWeakObjectPtr<AGirlSaviorCombatEncounter> CombatEncounter;
 	FVector TravelDirection = FVector::ZeroVector;
 	double DistanceTraveled = 0.0;

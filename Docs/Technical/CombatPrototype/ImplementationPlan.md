@@ -54,6 +54,17 @@ Document each Data Asset property, including nested fields, in Russian. Validate
 - A separate melee hit killed the hero and showed `Удар преследователя`. Retry restored the map, 100 HP and a new 30 HP Pursuer. A second foreground run received movement input and entered combat. The arena exit showed the success panel and closed gameplay input.
 - The Win64 Development Editor build and all five `GirlSavior.` tests passed. The first-fight route passed 22 checks and the defeat route passed seven. The existing Demo combat probe passed 37 checks. The clear-flight Demo projectile expired by its lifetime timer. Build, Automation, and PIE captures are under `GirlSavior/Saved/CP1/`. CP2 adds the Shooter, Charger, and dangerous-attack slot.
 
+### CP2 execution record · 2026-11-22
+
+- Baseline `f21e63e` on `main`, with `Archive/` already untracked. CP2 adds standalone fixtures and the shared dangerous-attack lifecycle. The connected expedition route and wave scheduling belong to CP3.
+- In `CombatPrototype`, enter the first room from the safe pocket and use the north opening to reach the Shooter lane, Charger lane, then the mixed room. The original exit is on the east side of the first room. The Shooter lane has a column with a route around it. The Charger lane has room to step aside and a stop wall.
+- A fresh Editor reopened the saved map and read back both definitions, all five registered fixtures, the projectile visual and blocker channels. Ten complete navmesh paths include the room connectors, the Shooter's route around the column, and the Charger's side escape.
+- Win64 Development Editor built with exit code 0. All six `GirlSavior.` Automation tests passed. Ten fresh PIE cases passed 58 checks. The Shooter sought a new angle around cover. A blocker moved into the locked line stopped the projectile. Killing either heavy role during preparation released its slot. The Charger stopped at the wall, the hero, or an allied pawn, including the ally check at 15 FPS. Killing the Charger in motion stopped travel and damage.
+- In the mixed room, the Shooter died after launch. Its projectile kept the slot, dealt 12 damage, and released the slot before the Charger prepared. A fresh PIE session with only the Shooter Data Asset temporarily edited dealt 17 damage on the same path. The saved asset retains the initial value.
+- PIE pause held game time and state steady during preparation, flight, and recovery. Rendered captures at 1237 × 595 show the Pursuer sector, the thin Shooter line, and the two edges of the Charger stripe. The Pursuer dealt 10 damage with a live sector swing on the saved map. The Demo collision and firing probe passed 37 checks, and its clear-flight projectile expired on the original timer.
+- **CP2 accepted.** The technical gate passed, and on 2026-11-22 the user confirmed that everything worked correctly during manual acceptance. The broader feedback scenarios across combat and support remain tracked in [GS-028](../../OpenItems/GS-028-EnemyAttackFeedbackPlaytest.md).
+- Verify again with `GirlSavior.TestBaseRoster <case>` in a fresh `CombatPrototype` PIE session. Cases are `ShooterAngle`, `ShooterCover`, `ShooterInterrupt`, `ChargeWall`, `ChargeAlly`, `ChargeHit`, `ChargerInterrupt`, `ChargeActiveInterrupt`, `Mixed`, and `MixedTuning` (set the Shooter Data Asset's physical damage to 17 first). Local build, fixture readback and test results are under `GirlSavior/Saved/CP2/`.
+
 ## Responsibilities and data flow
 
 ```mermaid

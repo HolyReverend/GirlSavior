@@ -3,6 +3,7 @@
 #include "Combat/GirlSaviorCombatChannels.h"
 #include "Combat/GirlSaviorDamageReceiverComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/LineBatchComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "DrawDebugHelpers.h"
@@ -79,7 +80,8 @@ void AGirlSaviorTestProjectile::BeginPlay()
 // Register before dispatching BeginPlay so damage and terminal cleanup share one owner.
 AGirlSaviorTestProjectile* AGirlSaviorTestProjectile::SpawnCombatProjectile(UWorld& World,
 	TSubclassOf<AGirlSaviorTestProjectile> Class, AActor* Owner, const FVector& Direction,
-	const FGirlSaviorProjectileLaunch& Launch, AGirlSaviorCombatEncounter& Encounter)
+	const FGirlSaviorProjectileLaunch& Launch, AGirlSaviorCombatEncounter& Encounter, UObject* SlotHolder,
+	FGirlSaviorProjectileCompleted::FDelegate Completion)
 {
 	const auto Faction = Launch.Damage.SourceFaction;
 	if (!IsValid(Owner) || Owner->GetWorld() != &World || Encounter.GetWorld() != &World
@@ -117,6 +119,17 @@ AGirlSaviorTestProjectile* AGirlSaviorTestProjectile::SpawnCombatProjectile(UWor
 		Projectile->Destroy();
 		return nullptr;
 	}
+	if (Faction == EGirlSaviorFaction::Enemy
+		&& (!IsValid(SlotHolder) || !Encounter.TransferDangerousAttack(Launch.Damage.AttackId, *SlotHolder, *Projectile)))
+	{
+		Encounter.UnregisterProjectile(Projectile);
+		Projectile->Destroy();
+		return nullptr;
+	}
+	if (Completion.IsBound())
+	{
+		Projectile->OnCompleted.Add(MoveTemp(Completion));
+	}
 
 	Projectile->FinishSpawning(Transform);
 	if (IsValid(Projectile))
@@ -141,6 +154,13 @@ void AGirlSaviorTestProjectile::ConfigureCombatShot()
 	CombatVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CombatVisual->SetVisibility(true);
 	CombatVisual->SetHiddenInGame(false);
+	if (LaunchSnapshot.Damage.SourceFaction == EGirlSaviorFaction::Enemy)
+	{
+		EnemyTrail = NewObject<ULineBatchComponent>(this);
+		EnemyTrail->SetCanEverAffectNavigation(false);
+		EnemyTrail->PrimaryComponentTick.bStartWithTickEnabled = false;
+		EnemyTrail->RegisterComponent();
+	}
 
 	ProjectileMovement->bAutoUpdateTickRegistration = false;
 	ProjectileMovement->PrimaryComponentTick.bStartWithTickEnabled = false;
@@ -242,6 +262,13 @@ void AGirlSaviorTestProjectile::Tick(float DeltaSeconds)
 		return;
 	}
 	DistanceTraveled += FVector::Dist(Start, GetActorLocation());
+	if (EnemyTrail)
+	{
+		EnemyTrail->Flush();
+		const FVector Head = GetActorLocation();
+		EnemyTrail->DrawLine(Head - TravelDirection * FMath::Min(82.0, DistanceTraveled), Head,
+			FLinearColor(1.f, 0.15f, 0.045f), SDPG_World, 7.f, 0.f);
+	}
 
 	if (bBoundaryLimited)
 	{
@@ -251,10 +278,31 @@ void AGirlSaviorTestProjectile::Tick(float DeltaSeconds)
 		Hit.ImpactNormal = -TravelDirection;
 		Complete(EGirlSaviorProjectileCompletion::Impact, &Hit);
 	}
-	else if (bRangeLimited)
+	else if (bRangeLimited && !TryResolveClippedEndContact())
 	{
 		Complete(EGirlSaviorProjectileCompletion::RangeExpired);
 	}
+}
+
+// A sweep stopping exactly at its warned range can finish just short of the contact numerically.
+bool AGirlSaviorTestProjectile::TryResolveClippedEndContact()
+{
+	if (!LaunchSnapshot.bResolveClippedEndContact)
+	{
+		return false;
+	}
+	const FVector Position = GetActorLocation();
+	const FCollisionQueryParams Query(SCENE_QUERY_STAT(GirlSaviorProjectileClippedEnd), false, this);
+	FCollisionResponseParams Response(CollisionSphere->GetCollisionResponseToChannels());
+	Response.CollisionResponse.SetResponse(ECC_Pawn, ECR_Ignore);
+	FHitResult Hit;
+	if (!GetWorld()->SweepSingleByChannel(Hit, Position, Position + TravelDirection * 0.25, FQuat::Identity,
+		CollisionSphere->GetCollisionObjectType(), CollisionSphere->GetCollisionShape(), Query, Response))
+	{
+		return false;
+	}
+	Complete(EGirlSaviorProjectileCompletion::Impact, &Hit);
+	return true;
 }
 
 void AGirlSaviorTestProjectile::HandleProjectileStop(const FHitResult& Hit)
@@ -345,6 +393,7 @@ void AGirlSaviorTestProjectile::Complete(EGirlSaviorProjectileCompletion Reason,
 
 	if (auto* Encounter = CombatEncounter.Get())
 	{
+		Encounter->ReleaseDangerousAttack(GetAttackId(), *this);
 		Encounter->UnregisterProjectile(this);
 	}
 	if (bCombatShot || Reason == EGirlSaviorProjectileCompletion::LifetimeExpired)
