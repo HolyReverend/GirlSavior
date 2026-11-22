@@ -2,6 +2,8 @@
 
 **Stage CP3.** Run one pressure system across the test route. Introduce each role, then mix roles as the player advances. Reinforcements use reachable entrances outside the current frame. The player can leave an ordinary room while enemies are alive. [Wave design](../../GameDesign/Mechanics/Encounters/EnemyWaves.md) · [Pressure profiles](../../GameDesign/Mechanics/Expeditions/ExpeditionDifficulty.md) · [Ordinary rooms](../../GameDesign/Mechanics/Encounters/CombatEncounters.md)
 
+Open `/Game/Maps/TestMaps/CombatPrototypeRoute` for the CP3 route. The accepted `CombatPrototype` fixture map is available for isolated CP1 and CP2 checks. In the route map, follow the north openings from the starting arena through the Shooter, Charger and Quiet rooms to the Mixed room and its far exit.
+
 ## Encounter foundation for CP1
 
 Before adding waves, place `AGirlSaviorCombatEncounter` in the first-fight map with waves disabled. Give it the live hero reference, Waiting/Active/terminal state transitions, a first-room overlap, the safe pocket, and the combatant/projectile registries. Implement activation, death, terminal cleanup and the [view query](#3-check-spawn-visibility-and-access) here. Use one explicit encounter reference for placed combatants, safe volume and presenter. The encounter resolves possession and attaches receivers, then registers fixtures after map BeginPlay and presenter binding. Enable attacks only when the hero enters the first fight and initialization is valid. CP2 adds the dangerous slot. CP3 adds authored profile/topology data, retirement and the scheduling logic below.

@@ -77,7 +77,7 @@ bool AGirlSaviorEnemyAIController::IsPathAdmissible(const AGirlSaviorEnemyCharac
         FVector End = Points[Index].Location;
         End.Z = Start.Z;
         if (!Body.IsInFixtureRoom(End)
-            || Encounter->CrossesSafeArea(Start, End, Body.GetCapsuleComponent()->GetScaledCapsuleRadius()))
+            || !Encounter->CanTraverseCombatSegment(Start, End, Body.GetCapsuleComponent()->GetScaledCapsuleRadius()))
         {
             return false;
         }

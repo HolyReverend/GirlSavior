@@ -1,6 +1,6 @@
 # Current project architecture
 
-The project targets Unreal Engine 5.9 Preview (Epic Games Launcher, verified build 5.9.0 CL 60738873). It has a movement and shooting regression level and a separate combat fixture level that uses the same controls and camera.
+The project targets Unreal Engine 5.9 Preview (Epic Games Launcher, verified build 5.9.0 CL 60738873). Demo, the combat fixtures, and the wave route share the existing controls and camera.
 
 ## Entry points and assets
 
@@ -20,13 +20,15 @@ Blueprints under `Content/Blueprints/Core/` and `Characters/` configure the matc
 
 `/Game/Maps/TestMaps/CombatPrototype` uses `BP_CombatPrototypeGameMode` and `BP_CombatPrototypeCharacter`, which inherit the Demo controls and camera. The combat Blueprint assigns `DA_HeroCombatPrototype`, `DA_CombatPistol`, and `BP_CombatPistolProjectile`. The safe pocket opens onto the Pursuer arena, with a health target and the exit. Three rooms through the north doorway contain a Shooter, a Charger, and one of each together. The five enemies reference explicit fixture bounds and role Data Assets. The Shooter definition supplies `BP_EnemyProjectile`. Saved navmesh connects the four rooms.
 
+`/Game/Maps/TestMaps/CombatPrototypeRoute` uses the same pawn, combat assets, and outcome HUD. It starts in the safe pocket and continues through the Pursuer, Shooter, Charger, Quiet, and Mixed rooms to the exit. The encounter assigns `DA_CombatWaveSettings`, the five `DA_WaveProfile_*` assets through room references, and the three CP2 enemy classes as the spawn roster. Entrances supply exact capsule-center transforms. The route stores baked open-floor navigation with dynamic modifiers for the test door.
+
 ## Native code map
 
 Paths below are relative to `GirlSavior/Source/GirlSavior/`. Entries ending in `.*` cover the matching header and implementation.
 
 | Files | Responsibility |
 | --- | --- |
-| [GirlSavior.cpp](../../GirlSavior/Source/GirlSavior/GirlSavior.cpp), [GirlSavior.Build.cs](../../GirlSavior/Source/GirlSavior/GirlSavior.Build.cs) | Register and build the single Runtime module. GeometryCore and GeometryAlgorithms support rooms. AIModule and NavigationSystem support the Pursuer. Slate and SlateCore support the combat HUD. |
+| [GirlSavior.cpp](../../GirlSavior/Source/GirlSavior/GirlSavior.cpp), [GirlSavior.Build.cs](../../GirlSavior/Source/GirlSavior/GirlSavior.Build.cs) | Register and build the single Runtime module. GeometryCore and GeometryAlgorithms support rooms. AIModule and NavigationSystem support enemy paths and wave admission. Slate and SlateCore support the combat HUD. |
 | [Core/GirlSaviorPrototypeGameMode.*](../../GirlSavior/Source/GirlSavior/Core/GirlSaviorPrototypeGameMode.cpp) | Select the character and controller defaults. |
 | [Core/GirlSaviorPlayerController.*](../../GirlSavior/Source/GirlSavior/Core/GirlSaviorPlayerController.cpp) | Own Enhanced Input registration, camera-relative movement intent, cursor/input mode, ordered fire and dash button edges, gameplay input cancellation, and the safe-area registry. |
 | [Characters/GirlSaviorCharacter.*](../../GirlSavior/Source/GirlSavior/Characters/GirlSaviorCharacter.cpp) | Install the custom movement component and own the aim, fire, and damage receiver components. |
@@ -45,6 +47,8 @@ Paths below are relative to `GirlSavior/Source/GirlSavior/`. Entries ending in `
 | [Combat/GirlSaviorSafeArea.*](../../GirlSavior/Source/GirlSavior/Combat/GirlSaviorSafeArea.cpp) | Track overlapping controlled pawns and cancel firing while any safe area applies. |
 | [Enemies/](../../GirlSavior/Source/GirlSavior/Enemies/) | Own role tuning, complete navigation paths and alternate attack positions, warning geometry, and the shared attack phase machine. Pursuer resolves a sector, Shooter launches a swept projectile, and Charger advances its capsule only along the locked stripe. |
 | [Encounters/](../../GirlSavior/Source/GirlSavior/Encounters/) | Own encounter triggers, safe boundary, actor registries, the constrained combat view, the single dangerous slot, terminal states, the training target, and the retry HUD. |
+| [Encounters/GirlSaviorCombatWaves.cpp](../../GirlSavior/Source/GirlSavior/Encounters/GirlSaviorCombatWaves.cpp), [GirlSaviorWavePolicy.*](../../GirlSavior/Source/GirlSavior/Encounters/GirlSaviorWavePolicy.cpp) | Schedule one group reservation, recheck it against the current room, counts, view and path, and record successful arrivals. Free places on death, retirement, or teardown. |
+| [Encounters/GirlSaviorCombatRoom.*](../../GirlSavior/Source/GirlSavior/Encounters/GirlSaviorCombatRoom.cpp), [GirlSaviorWaveSettings.*](../../GirlSavior/Source/GirlSavior/Encounters/GirlSaviorWaveSettings.cpp), [GirlSaviorWaveSpatial.*](../../GirlSavior/Source/GirlSavior/Encounters/GirlSaviorWaveSpatial.cpp) | Author room order, links, doors and entrance transforms, own wave tuning, and check spawn capsule, path, projected bounds and arrival time. |
 
 ## Integration contracts
 
@@ -56,6 +60,7 @@ Paths below are relative to `GirlSavior/Source/GirlSavior/`. Entries ending in `
 - `PrototypeProjectile` and `EnemyProjectile` are object channels 2 and 3. Hero and enemy capsules block the opposing projectile channel in combat. The Demo projectile keeps its Pawn response. `CombatOccluder` is trace channel 4 for authored blockers and the safe boundary.
 - The encounter activates when the hero leaves the safe pocket and reaches the first room. Terminal transitions close gameplay input and clear pending threats after the current dispatch. The outcome panel displays the lethal cause and reloads the current map on retry.
 - Shooter and Charger reserve the encounter's dangerous slot only after a visible warning is possible. Only the matching attack ID and holder can transfer or release it. When a Shooter launches, the projectile takes ownership before it moves. Placed enemies only engage a hero within their assigned fixture bounds.
+- Wave-enabled encounters count living and reserved enemies across all rooms. A wave commit uses current game time and the current constrained camera view. The hero can cross ordinary rooms with enemies alive. Door state blocks paths immediately while navigation updates its tiles. The protected pocket cancels pending reinforcements and holds enemies outside.
 - Camera tuning belongs in `DA_CameraManager`. After same-pawn teleports, call `RequestFollowSnap()`.
 - Room framing uses room footprint geometry and `WallInset`. Side gaps within the inset can join across overlapping sides. Room authoring supports yaw rotation and positive scale with world-up orientation.
 - `CameraOcclusion` is `ECC_GameTraceChannel1`, default Ignore, configured in `Config/DefaultEngine.ini`. Fadeable components overlap it, carry `CameraFade`, and use custom primitive data slot 0 in the prototype fade material. Gameplay blocking remains on separate geometry.

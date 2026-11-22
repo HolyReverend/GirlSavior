@@ -90,9 +90,18 @@ bool AGirlSaviorEnemyCharacter::InitializeForEncounter(AGirlSaviorCombatEncounte
     GetCharacterMovement()->MaxWalkSpeed = Definition->WalkSpeed;
     DamageReceiver->OnDied.AddUObject(this, &AGirlSaviorEnemyCharacter::HandleDeath);
     bEncounterInitialized = true;
-    Attack->ActivateForEncounter(InEncounter, *Definition, *AttackVisual);
-    AI->ActivateForEncounter(InEncounter);
     return true;
+}
+
+// Registration owns the population place before any path request or attack can be made.
+void AGirlSaviorEnemyCharacter::ActivateForEncounter()
+{
+    auto* AI = Cast<AGirlSaviorEnemyAIController>(GetController());
+    if (bEncounterInitialized && !bRetired && AI && IsValid(Encounter))
+    {
+        Attack->ActivateForEncounter(*Encounter, *Definition, *AttackVisual);
+        AI->ActivateForEncounter(*Encounter);
+    }
 }
 
 bool AGirlSaviorEnemyCharacter::IsInFixtureRoom(const FVector& Location) const

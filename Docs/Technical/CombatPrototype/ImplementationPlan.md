@@ -65,6 +65,16 @@ Document each Data Asset property, including nested fields, in Russian. Validate
 - **CP2 accepted.** The technical gate passed, and on 2026-11-22 the user confirmed that everything worked correctly during manual acceptance. The broader feedback scenarios across combat and support remain tracked in [GS-028](../../OpenItems/GS-028-EnemyAttackFeedbackPlaytest.md).
 - Verify again with `GirlSavior.TestBaseRoster <case>` in a fresh `CombatPrototype` PIE session. Cases are `ShooterAngle`, `ShooterCover`, `ShooterInterrupt`, `ChargeWall`, `ChargeAlly`, `ChargeHit`, `ChargerInterrupt`, `ChargeActiveInterrupt`, `Mixed`, and `MixedTuning` (set the Shooter Data Asset's physical damage to 17 first). Local build, fixture readback and test results are under `GirlSavior/Saved/CP2/`.
 
+### CP3 execution record · 2026-11-22
+
+- Baseline `7374842` on `main`, with `Archive/` already untracked. The continuous wave route is `/Game/Maps/TestMaps/CombatPrototypeRoute`. It preserves the accepted CP2 fixture map for regression checks and uses the same controls, camera, and Retry. Follow the north openings from the safe pocket through Pursuer, Shooter, Charger, Quiet, and Mixed to the far exit.
+- Fresh Editor readback verified both projectile channels at the safe entrance, the open test door and its dynamic navigation modifier, 11 entrance groups with 44 exact spawn slots, and 49 full paths. The wave map uses `DA_CombatWaveSettings` and one of five `DA_WaveProfile_*` assets per room.
+- Nine CP3 PIE scenarios passed. The scripted route followed 104.7 m of swept movement through all five rooms and reached the exit with six enemies still live immediately before cleanup. The first Pursuer appeared 2.38 s after activation. After that fight was cleared, the next group entered the frame 2.57 s later. Quiet waited 10.25 s after the previous commit. The Mixed profile went from four to six, including one Shooter and one Charger, without overlapping their dangerous warnings or charging bodies.
+- Pending reservations cancelled after a room transition, a door closure, a slot entering the camera frame, safe-pocket entry and defeat. Reopening the door allowed the group to retry. The backlog test paused with six live enemies and emitted a single group after the clear. A distant offscreen enemy retired without a kill and stayed gone on backtracking. Retry reset the wave clock, registry, and hero health.
+- A fresh PIE run with only Quiet's Data Asset interval temporarily set to 4 s measured a 4.31 s group gap. The saved asset still has its original tuning. Win64 Development Editor, all nine `GirlSavior.` Automation tests, 58 CP2 regression checks and 37 Demo combat checks passed.
+- The route probe uses swept movement at walk speed and scripted damage to separate scheduling from aiming. Local logs, map readback and PIE runners are under `GirlSavior/Saved/CP3/`.
+- **CP3 accepted.** On 2026-11-22 the user confirmed that everything worked correctly during manual acceptance. Broader expedition pacing remains tracked in [GS-013](../../OpenItems/GS-013-EnemyWavePressure.md).
+
 ## Responsibilities and data flow
 
 ```mermaid

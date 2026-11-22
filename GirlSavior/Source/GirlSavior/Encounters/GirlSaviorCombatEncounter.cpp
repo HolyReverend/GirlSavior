@@ -10,6 +10,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Core/GirlSaviorPlayerController.h"
 #include "Encounters/GirlSaviorCombatTarget.h"
+#include "Encounters/GirlSaviorCombatRoom.h"
 #include "Enemies/GirlSaviorEnemyAttackComponent.h"
 #include "Enemies/GirlSaviorEnemyCharacter.h"
 #include "Engine/GameViewportClient.h"
@@ -49,7 +50,7 @@ AGirlSaviorCombatEncounter::AGirlSaviorCombatEncounter()
 // Wait until the local pawn exists, then bind receiver admission before opening combat.
 bool AGirlSaviorCombatEncounter::InitializeRun(AGirlSaviorCharacter& Pawn)
 {
-    if (!IsValid(SafeArea) || PlacedEnemies.IsEmpty() || !BindHero(Pawn))
+    if (!IsValid(SafeArea) || (bWavesEnabled ? !ValidateWaveRoute() : PlacedEnemies.IsEmpty()) || !BindHero(Pawn))
     {
         UE_LOG(LogGirlSaviorEncounter, Error, TEXT("%s is missing a safe area, enemy, hero vitals or configured pistol."), *GetName());
         return false;
@@ -70,16 +71,21 @@ bool AGirlSaviorCombatEncounter::InitializeRun(AGirlSaviorCharacter& Pawn)
     }
     for (AGirlSaviorEnemyCharacter* Enemy : PlacedEnemies)
     {
-        if (!IsValid(Enemy) || LiveEnemies.Contains(Enemy) || !Enemy->InitializeForEncounter(*this))
+        if (!IsValid(Enemy) || LiveEnemies.Contains(Enemy))
         {
             UE_LOG(LogGirlSaviorEncounter, Error, TEXT("Invalid combat enemy %s."), *GetNameSafe(Enemy));
             return false;
         }
-        BindAdmission(*Enemy->GetDamageReceiver());
-        LiveEnemies.Add(Enemy);
+        if (!RegisterEnemy(*Enemy, FindRoomAt(Enemy->GetActorLocation()), true, 0))
+        {
+            UE_LOG(LogGirlSaviorEncounter, Warning, TEXT("Removing invalid fixture %s."), *Enemy->GetName());
+            Enemy->Destroy();
+            continue;
+        }
+        ActivateRegisteredEnemy(*Enemy);
     }
     UE_LOG(LogGirlSaviorEncounter, Display, TEXT("First fight standing by. Enemies=%d"), LiveEnemies.Num());
-    return true;
+    return bWavesEnabled || !LiveEnemies.IsEmpty();
 }
 
 // Bind a newly possessed prototype hero without resetting an already initialized receiver.
@@ -165,12 +171,13 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
         APawn* Current = UGameplayStatics::GetPlayerPawn(this, 0);
         if (Current != Hero.Get())
         {
+            CancelReservation(TEXT("hero-changed"));
             const auto Enemies = LiveEnemies;
-            for (const auto& Enemy : Enemies)
+            for (const auto& Entry : Enemies)
             {
-                if (Enemy.IsValid())
+                if (Entry.Key.IsValid())
                 {
-                    Enemy->GetAttackComponent()->CancelForTargetChange();
+                    Entry.Key->GetAttackComponent()->CancelForTargetChange();
                 }
             }
             UnbindHero();
@@ -186,11 +193,12 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
         return;
     }
     CaptureView();
+    RefreshHeroRoom();
     switch (RunState)
     {
     case EGirlSaviorRunState::Waiting:
-        if (FirstRoomVolume->IsOverlappingActor(Hero.Get()) && IsValid(SafeArea)
-            && !SafeArea->SafeVolume->IsOverlappingActor(Hero.Get()) && !IsPointInSafeArea(Hero->GetActorLocation()))
+        if (!IsHeroProtected() && (bWavesEnabled ? CurrentRoom.Get() == Rooms[0].Get()
+            : FirstRoomVolume->IsOverlappingActor(Hero.Get())))
         {
             RunState = EGirlSaviorRunState::Active;
             if (auto* Controller = Cast<AGirlSaviorPlayerController>(Hero->GetController()))
@@ -208,6 +216,10 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
         break;
     default:
         break;
+    }
+    if (bWavesEnabled && RunState == EGirlSaviorRunState::Active)
+    {
+        UpdateWaves(GetWorld()->GetTimeSeconds());
     }
 }
 
@@ -240,12 +252,31 @@ EGirlSaviorDamageOutcome AGirlSaviorCombatEncounter::CheckDamageBoundary(
 bool AGirlSaviorCombatEncounter::CanEnemyEngage(const AActor& Source) const
 {
     const auto* Enemy = Cast<AGirlSaviorEnemyCharacter>(&Source);
-    return RunState == EGirlSaviorRunState::Active && Hero.IsValid() && IsValid(SafeArea)
+    if (!(RunState == EGirlSaviorRunState::Active && Hero.IsValid() && IsValid(SafeArea)
         && Hero->IsLocallyControlled() && Hero->GetDamageReceiver()->IsAlive() && !IsPointInSafeArea(Source.GetActorLocation())
-        && !IsPointInSafeArea(Hero->GetActorLocation())
-        && !SafeArea->SafeVolume->IsOverlappingActor(Hero.Get())
+        && !IsHeroProtected()
         && (!Enemy || (Enemy->IsInFixtureRoom(Source.GetActorLocation())
-            && Enemy->IsInFixtureRoom(Hero->GetActorLocation())));
+            && Enemy->IsInFixtureRoom(Hero->GetActorLocation())))))
+    {
+        return false;
+    }
+    if (!bWavesEnabled || !Enemy)
+    {
+        return true;
+    }
+    const FEnemyRecord* Record = LiveEnemies.Find(Enemy);
+    if (!Record)
+    {
+        return false;
+    }
+    const AGirlSaviorCombatRoom* Room = FindRoomAt(Enemy->GetActorLocation());
+    return IsRoomReachable(Room ? Room : Record->Room.Get(), CurrentRoom.Get());
+}
+
+bool AGirlSaviorCombatEncounter::IsHeroProtected() const
+{
+    return !Hero.IsValid() || !IsValid(SafeArea) || IsPointInSafeArea(Hero->GetActorLocation())
+        || SafeArea->SafeVolume->IsOverlappingActor(Hero.Get());
 }
 
 bool AGirlSaviorCombatEncounter::IsPointInSafeArea(const FVector& Point) const
@@ -396,7 +427,11 @@ void AGirlSaviorCombatEncounter::ReleaseDangerousAttack(int64 AttackId, const UO
 
 void AGirlSaviorCombatEncounter::UnregisterEnemy(AGirlSaviorEnemyCharacter* Enemy)
 {
-    LiveEnemies.Remove(Enemy);
+    FEnemyRecord Removed;
+    if (Enemy && LiveEnemies.RemoveAndCopyValue(Enemy, Removed) && Removed.bPublished)
+    {
+        OnEnemyRemoved.Broadcast(Enemy);
+    }
 }
 
 bool AGirlSaviorCombatEncounter::RegisterProjectile(AGirlSaviorTestProjectile* Projectile)
@@ -431,6 +466,7 @@ void AGirlSaviorCombatEncounter::CloseRun(EGirlSaviorRunState TerminalState)
         return;
     }
     RunState = TerminalState;
+    CancelReservation(TEXT("terminal"));
     DangerousAttackId = 0;
     DangerousAttackHolder.Reset();
     OutcomeVisibleAt = GetWorld()->GetTimeSeconds() + (TerminalState == EGirlSaviorRunState::Defeated ? 1.25 : 0.0);
@@ -441,13 +477,17 @@ void AGirlSaviorCombatEncounter::CloseRun(EGirlSaviorRunState TerminalState)
     Hero->GetCharacterMovement()->DisableMovement();
     const auto Enemies = MoveTemp(LiveEnemies);
     LiveEnemies.Reset();
-    for (const auto& Enemy : Enemies)
+    for (const auto& Entry : Enemies)
     {
-        if (Enemy.IsValid())
+        if (AGirlSaviorEnemyCharacter* Enemy = Entry.Key.Get())
         {
             Enemy->StopForEncounter();
             Enemy->SetActorEnableCollision(false);
             PendingRetirements.Add(Enemy);
+            if (Entry.Value.bPublished)
+            {
+                OnEnemyRemoved.Broadcast(Enemy);
+            }
         }
     }
     bCleanupPending = true;
@@ -474,10 +514,16 @@ bool AGirlSaviorCombatEncounter::Retry()
 
 void AGirlSaviorCombatEncounter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+    CancelReservation(TEXT("end-play"));
     UnbindHero();
     LiveProjectiles.Reset();
     LiveEnemies.Reset();
     PendingRetirements.Reset();
+    CurrentRoom.Reset();
+    RouteDoors.Reset();
+    ServedIntroductions.Reset();
+    LastOutsideApproach.Reset();
+    LastCommittedGroupTime.Reset();
     DangerousAttackId = 0;
     DangerousAttackHolder.Reset();
     Super::EndPlay(EndPlayReason);

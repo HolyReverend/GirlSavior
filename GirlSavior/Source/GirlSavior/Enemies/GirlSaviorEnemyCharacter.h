@@ -35,6 +35,7 @@ public:
     TObjectPtr<UStaticMeshComponent> BodyVisual;
 
     bool InitializeForEncounter(AGirlSaviorCombatEncounter& InEncounter);
+    void ActivateForEncounter();
     void StopForEncounter();
     bool IsInFixtureRoom(const FVector& Location) const;
 

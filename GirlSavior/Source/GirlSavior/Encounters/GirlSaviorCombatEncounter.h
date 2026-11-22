@@ -2,17 +2,21 @@
 
 #include "CoreMinimal.h"
 #include "Combat/GirlSaviorDamageTypes.h"
+#include "Encounters/GirlSaviorWavePolicy.h"
 #include "GameFramework/Actor.h"
 #include "SceneView.h"
 #include "GirlSaviorCombatEncounter.generated.h"
 
 class AGirlSaviorCharacter;
 class AGirlSaviorCombatTarget;
+class AGirlSaviorCombatDoor;
+class AGirlSaviorCombatRoom;
 class AGirlSaviorEnemyCharacter;
 class AGirlSaviorSafeArea;
 class AGirlSaviorTestProjectile;
 class UBoxComponent;
 class UGirlSaviorDamageReceiverComponent;
+struct FGirlSaviorWaveEntrance;
 
 UENUM(BlueprintType)
 enum class EGirlSaviorRunState : uint8
@@ -22,6 +26,8 @@ enum class EGirlSaviorRunState : uint8
     Succeeded,
     Defeated
 };
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGirlSaviorCombatantEvent, AGirlSaviorEnemyCharacter*, Enemy);
 
 UCLASS()
 class GIRLSAVIOR_API AGirlSaviorCombatEncounter : public AActor
@@ -47,6 +53,24 @@ public:
     UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Combat")
     TArray<TObjectPtr<AGirlSaviorCombatTarget>> PlacedTargets;
 
+    UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Combat|Waves")
+    bool bWavesEnabled = false;
+
+    UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Combat|Waves")
+    TObjectPtr<UGirlSaviorWaveSettings> WaveSettings;
+
+    UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Combat|Waves")
+    TArray<TObjectPtr<AGirlSaviorCombatRoom>> Rooms;
+
+    UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Combat|Waves")
+    TMap<EGirlSaviorEnemyRole, TSubclassOf<AGirlSaviorEnemyCharacter>> EnemyClasses;
+
+    UPROPERTY(BlueprintAssignable, Category = "Combat")
+    FGirlSaviorCombatantEvent OnEnemyRegistered;
+
+    UPROPERTY(BlueprintAssignable, Category = "Combat")
+    FGirlSaviorCombatantEvent OnEnemyRemoved;
+
     UFUNCTION(BlueprintPure, Category = "Combat")
     EGirlSaviorRunState GetRunState() const { return RunState; }
 
@@ -55,6 +79,18 @@ public:
 
     UFUNCTION(BlueprintPure, Category = "Combat")
     int32 GetLiveEnemyCount() const { return LiveEnemies.Num(); }
+
+    UFUNCTION(BlueprintPure, Category = "Combat|Waves")
+    int32 GetReservedEnemyCount() const { return Reservation.IsSet() ? Reservation->Members.Num() : 0; }
+
+    UFUNCTION(BlueprintPure, Category = "Combat|Waves")
+    int32 GetOccupiedRoleCount(EGirlSaviorEnemyRole EnemyRole) const;
+
+    UFUNCTION(BlueprintPure, Category = "Combat|Waves")
+    AGirlSaviorCombatRoom* GetCurrentRoom() const { return CurrentRoom.Get(); }
+
+    UFUNCTION(BlueprintPure, Category = "Combat|Waves")
+    double GetLastCommittedGroupTime() const { return LastCommittedGroupTime.Get(-1.0); }
 
     UFUNCTION(BlueprintPure, Category = "Combat")
     int32 GetLiveProjectileCount() const { return LiveProjectiles.Num(); }
@@ -71,6 +107,7 @@ public:
     bool CanEnemyEngage(const AActor& Source) const;
     bool IsPointInSafeArea(const FVector& Point) const;
     bool CrossesSafeArea(const FVector& Start, const FVector& End, float Radius = 0.f) const;
+    bool CanTraverseCombatSegment(const FVector& Start, const FVector& End, float Radius) const;
     bool IsWarningVisible(TConstArrayView<FVector> FloorPolygon) const;
     bool IsBodyInView(const FVector& Center, float Radius, float HalfHeight) const;
     bool IsStraightWarningVisible(const FVector& Start, const FVector& End, float StripeHalfWidth) const;
@@ -87,6 +124,37 @@ protected:
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+    struct FEnemyRecord
+    {
+        EGirlSaviorEnemyRole Role = EGirlSaviorEnemyRole::Pursuer;
+        TWeakObjectPtr<AGirlSaviorCombatRoom> Room;
+        int32 ConsecutivePathFailures = 0;
+        bool bFixture = false;
+        bool bRetain = false;
+        bool bPublished = false;
+        bool bReportedVisible = false;
+        int64 GroupId = 0;
+    };
+
+    struct FWaveMember
+    {
+        EGirlSaviorEnemyRole Role;
+        int32 SlotIndex;
+        FTransform Transform;
+    };
+
+    struct FWaveReservation
+    {
+        int64 Id = 0;
+        TWeakObjectPtr<AGirlSaviorCombatRoom> Room;
+        TWeakObjectPtr<UGirlSaviorWaveProfile> Profile;
+        FName EntranceId;
+        TArray<FWaveMember> Members;
+        double CreatedAt = 0.0;
+        double DueAt = 0.0;
+        bool bIntroduction = false;
+    };
+
     bool InitializeRun(AGirlSaviorCharacter& Pawn);
     bool BindHero(AGirlSaviorCharacter& Pawn);
     void UnbindHero();
@@ -96,9 +164,29 @@ private:
     bool ProjectIntoView(const FVector& Point, FVector2D& Pixel, bool bRequireClearRay) const;
     void OnHeroDied(const FGirlSaviorDamageResult& Result);
     void CloseRun(EGirlSaviorRunState TerminalState);
+    bool IsHeroProtected() const;
+    bool RegisterEnemy(AGirlSaviorEnemyCharacter& Enemy, AGirlSaviorCombatRoom* Room, bool bFixture, int64 GroupId);
+    void ActivateRegisteredEnemy(AGirlSaviorEnemyCharacter& Enemy);
+    bool ValidateWaveRoute();
+    AGirlSaviorCombatRoom* FindRoomAt(const FVector& Location) const;
+    void RefreshHeroRoom();
+    void UpdateWaves(double Now);
+    void UpdateEnemyRoomsAndRetire();
+    void RecordVisibleArrivals(double Now);
+    void TryReserveGroup(double Now, AGirlSaviorCombatRoom& Room, const UGirlSaviorWaveProfile& Profile);
+    void RevalidateAndCommit(double Now);
+    void CancelReservation(const TCHAR* Reason);
+    void LogGroup(const FWaveReservation& Group, const TCHAR* Action, const TCHAR* Reason, int32 Actual = 0) const;
+    bool CanAccelerateWave() const;
+    bool WaveTimingAllows(const UGirlSaviorWaveProfile& Profile, double Now) const;
+    FGirlSaviorWavePopulation GetLivePopulation() const;
+    const AGirlSaviorEnemyCharacter* GetEnemyDefaults(EGirlSaviorEnemyRole Role) const;
+    bool CheckSpawnSlot(const AGirlSaviorCombatRoom& Room, const FGirlSaviorWaveEntrance& Entrance,
+        const FWaveMember& Member, double& OutPathLength, const TCHAR** OutFailure = nullptr) const;
+    bool IsRoomReachable(const AGirlSaviorCombatRoom* From, const AGirlSaviorCombatRoom* To) const;
 
     TWeakObjectPtr<AGirlSaviorCharacter> Hero;
-    TSet<TWeakObjectPtr<AGirlSaviorEnemyCharacter>> LiveEnemies;
+    TMap<TWeakObjectPtr<AGirlSaviorEnemyCharacter>, FEnemyRecord> LiveEnemies;
     TSet<TWeakObjectPtr<AGirlSaviorTestProjectile>> LiveProjectiles;
     TArray<TWeakObjectPtr<AGirlSaviorEnemyCharacter>> PendingRetirements;
     FSceneViewProjectionData View;
@@ -109,6 +197,14 @@ private:
     int64 LastAttackId = 0;
     int64 DangerousAttackId = 0;
     TWeakObjectPtr<UObject> DangerousAttackHolder;
+    TWeakObjectPtr<AGirlSaviorCombatRoom> CurrentRoom;
+    TArray<TWeakObjectPtr<const AGirlSaviorCombatDoor>> RouteDoors;
+    TSet<FName> ServedIntroductions;
+    TOptional<FVector> LastOutsideApproach;
+    TOptional<FWaveReservation> Reservation;
+    TOptional<double> LastCommittedGroupTime;
+    double NextWaveQuery = 0.0;
+    int64 LastGroupId = 0;
     bool bInitialized = false;
     bool bInitializationAttempted = false;
     bool bViewValid = false;
