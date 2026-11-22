@@ -47,6 +47,9 @@ struct FGirlSaviorProjectileImpact
 	bool bHasDamageResult = false;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Projectile")
+	bool bWardContact = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Projectile")
 	FGirlSaviorDamageResult DamageResult;
 };
 
@@ -100,6 +103,8 @@ public:
 	double GetRangeRemaining() const { return FMath::Max(0.0, double(LaunchSnapshot.MaxDistance) - DistanceTraveled); }
 
 	int64 GetAttackId() const { return LaunchSnapshot.Damage.AttackId; }
+	EGirlSaviorFaction GetSourceFaction() const { return LaunchSnapshot.Damage.SourceFaction; }
+	const FVector& GetTravelDirection() const { return TravelDirection; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -122,7 +127,7 @@ private:
 
 	FGirlSaviorProjectileLaunch LaunchSnapshot;
 	UPROPERTY()
-	TObjectPtr<ULineBatchComponent> EnemyTrail;
+	TObjectPtr<ULineBatchComponent> FlightTrail;
 	TWeakObjectPtr<AGirlSaviorCombatEncounter> CombatEncounter;
 	FVector TravelDirection = FVector::ZeroVector;
 	double DistanceTraveled = 0.0;

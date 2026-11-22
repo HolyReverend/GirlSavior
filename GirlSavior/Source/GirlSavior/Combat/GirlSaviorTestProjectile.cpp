@@ -154,12 +154,13 @@ void AGirlSaviorTestProjectile::ConfigureCombatShot()
 	CombatVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	CombatVisual->SetVisibility(true);
 	CombatVisual->SetHiddenInGame(false);
-	if (LaunchSnapshot.Damage.SourceFaction == EGirlSaviorFaction::Enemy)
+	if (LaunchSnapshot.Damage.SourceFaction == EGirlSaviorFaction::Enemy
+		|| (CombatEncounter.IsValid() && CombatEncounter->HasFeedbackPresenter()))
 	{
-		EnemyTrail = NewObject<ULineBatchComponent>(this);
-		EnemyTrail->SetCanEverAffectNavigation(false);
-		EnemyTrail->PrimaryComponentTick.bStartWithTickEnabled = false;
-		EnemyTrail->RegisterComponent();
+		FlightTrail = NewObject<ULineBatchComponent>(this);
+		FlightTrail->SetCanEverAffectNavigation(false);
+		FlightTrail->PrimaryComponentTick.bStartWithTickEnabled = false;
+		FlightTrail->RegisterComponent();
 	}
 
 	ProjectileMovement->bAutoUpdateTickRegistration = false;
@@ -262,12 +263,16 @@ void AGirlSaviorTestProjectile::Tick(float DeltaSeconds)
 		return;
 	}
 	DistanceTraveled += FVector::Dist(Start, GetActorLocation());
-	if (EnemyTrail)
+	if (FlightTrail)
 	{
-		EnemyTrail->Flush();
+		FlightTrail->Flush();
 		const FVector Head = GetActorLocation();
-		EnemyTrail->DrawLine(Head - TravelDirection * FMath::Min(82.0, DistanceTraveled), Head,
-			FLinearColor(1.f, 0.15f, 0.045f), SDPG_World, 7.f, 0.f);
+		const bool bEnemy = LaunchSnapshot.Damage.SourceFaction == EGirlSaviorFaction::Enemy;
+		const double Length = FMath::Min(bEnemy ? 82.0 : 68.0, DistanceTraveled);
+		const FLinearColor Color = bEnemy ? FLinearColor(1.f, 0.15f, 0.045f) : FLinearColor(1.f, 0.88f, 0.57f);
+		const FVector Middle = Head - TravelDirection * (Length * 0.4);
+		FlightTrail->DrawLine(Head - TravelDirection * Length, Middle, Color * 0.52f, SDPG_World, bEnemy ? 5.f : 2.f, 0.f);
+		FlightTrail->DrawLine(Middle, Head, Color, SDPG_World, bEnemy ? 7.f : 3.f, 0.f);
 	}
 
 	if (bBoundaryLimited)
@@ -350,6 +355,9 @@ void AGirlSaviorTestProjectile::Complete(EGirlSaviorProjectileCompletion Reason,
 		FGirlSaviorProjectileImpact Impact;
 		Impact.Point = Hit->ImpactPoint;
 		Impact.Normal = Hit->ImpactNormal;
+		const auto* Encounter = CombatEncounter.Get();
+		Impact.bWardContact = (HitActor && HitActor->ActorHasTag(TEXT("CombatSafeWard")))
+			|| (Encounter && Encounter->CrossesSafeArea(Impact.Point, Impact.Point, CollisionSphere->GetScaledSphereRadius() + 1.f));
 		if (Receiver)
 		{
 			FGirlSaviorDamageSpec Damage = LaunchSnapshot.Damage;
@@ -368,7 +376,7 @@ void AGirlSaviorTestProjectile::Complete(EGirlSaviorProjectileCompletion Reason,
 		}
 
 		OnResolvedImpact.Broadcast(Impact);
-		if (bCombatShot)
+		if (bCombatShot && (!Encounter || !Encounter->HasFeedbackPresenter()))
 		{
 			// This greybox cue stays in the world after the projectile has gone.
 			FColor Color = FColor::Orange;
@@ -382,7 +390,7 @@ void AGirlSaviorTestProjectile::Complete(EGirlSaviorProjectileCompletion Reason,
 			}
 			DrawDebugSphere(GetWorld(), Impact.Point, 12.f, 8, Color, false, .15f, 0, 1.5f);
 		}
-		else
+		else if (!bCombatShot)
 		{
 			const bool bHitTarget = Impact.ContactType == EGirlSaviorProjectileContact::Target;
 			UE_LOG(LogTemp, Log, TEXT("Prototype projectile impact: %s at %s"),

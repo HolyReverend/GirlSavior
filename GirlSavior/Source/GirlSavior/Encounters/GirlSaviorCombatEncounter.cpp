@@ -10,6 +10,8 @@
 #include "Components/CapsuleComponent.h"
 #include "Core/GirlSaviorPlayerController.h"
 #include "Encounters/GirlSaviorCombatTarget.h"
+#include "Encounters/GirlSaviorWaveSpatial.h"
+#include "Feedback/GirlSaviorCombatFeedbackPresenter.h"
 #include "Encounters/GirlSaviorCombatRoom.h"
 #include "Enemies/GirlSaviorEnemyAttackComponent.h"
 #include "Enemies/GirlSaviorEnemyCharacter.h"
@@ -112,6 +114,7 @@ bool AGirlSaviorCombatEncounter::BindHero(AGirlSaviorCharacter& Pawn)
     BindAdmission(*Receiver);
     Receiver->OnDied.AddUObject(this, &ThisClass::OnHeroDied);
     Controller->SetFireAllowed(RunState == EGirlSaviorRunState::Active && !SafeArea->SafeVolume->IsOverlappingActor(&Pawn));
+    OnHeroChanged.Broadcast(&Pawn);
     return true;
 }
 
@@ -124,7 +127,11 @@ void AGirlSaviorCombatEncounter::UnbindHero()
         Previous->GetFireComponent()->SetCombatEncounter(nullptr);
         Previous->GetCapsuleComponent()->SetCollisionResponseToChannel(GirlSaviorCombatChannels::EnemyProjectile, ECR_Ignore);
     }
-    Hero.Reset();
+    if (!Hero.IsExplicitlyNull())
+    {
+        Hero.Reset();
+        OnHeroChanged.Broadcast(nullptr);
+    }
 }
 
 void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
@@ -169,7 +176,7 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
     if (RunState == EGirlSaviorRunState::Waiting || RunState == EGirlSaviorRunState::Active)
     {
         APawn* Current = UGameplayStatics::GetPlayerPawn(this, 0);
-        if (Current != Hero.Get())
+        if (Current != Hero.Get() || (!Current && !Hero.IsExplicitlyNull()))
         {
             CancelReservation(TEXT("hero-changed"));
             const auto Enemies = LiveEnemies;
@@ -206,6 +213,7 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
                 Controller->SetFireAllowed(true);
             }
             UE_LOG(LogGirlSaviorEncounter, Display, TEXT("First fight active."));
+            OnRunStateChanged.Broadcast(RunState);
         }
         break;
     case EGirlSaviorRunState::Active:
@@ -271,6 +279,49 @@ bool AGirlSaviorCombatEncounter::CanEnemyEngage(const AActor& Source) const
     }
     const AGirlSaviorCombatRoom* Room = FindRoomAt(Enemy->GetActorLocation());
     return IsRoomReachable(Room ? Room : Record->Room.Get(), CurrentRoom.Get());
+}
+
+bool AGirlSaviorCombatEncounter::AttachFeedback(AGirlSaviorCombatFeedbackPresenter& Presenter)
+{
+    if (Feedback.IsValid() || Presenter.GetWorld() != GetWorld())
+    {
+        return false;
+    }
+    Feedback = &Presenter;
+    return true;
+}
+
+void AGirlSaviorCombatEncounter::DetachFeedback(const AGirlSaviorCombatFeedbackPresenter& Presenter)
+{
+    if (Feedback.Get() == &Presenter)
+    {
+        Feedback.Reset();
+    }
+}
+
+bool AGirlSaviorCombatEncounter::CanPresentCombatWarning() const
+{
+    return !Feedback.IsValid() || Feedback->HasWarningClass();
+}
+
+bool AGirlSaviorCombatEncounter::IsPresentationBoundsOffscreen(const FBox& Bounds) const
+{
+    using namespace GirlSaviorWaveSpatial;
+    return bViewValid && ProjectLiveBounds(View, Bounds) == GirlSaviorWaveSpatial::EVisibility::Outside;
+}
+
+TArray<AGirlSaviorEnemyCharacter*> AGirlSaviorCombatEncounter::GetLivingEnemies() const
+{
+    TArray<AGirlSaviorEnemyCharacter*> Result;
+    Result.Reserve(LiveEnemies.Num());
+    for (const auto& Entry : LiveEnemies)
+    {
+        if (auto* Enemy = Entry.Key.Get())
+        {
+            Result.Add(Enemy);
+        }
+    }
+    return Result;
 }
 
 bool AGirlSaviorCombatEncounter::IsHeroProtected() const
@@ -441,7 +492,8 @@ bool AGirlSaviorCombatEncounter::RegisterProjectile(AGirlSaviorTestProjectile* P
         return false;
     }
     LiveProjectiles.Add(Projectile);
-    return true;
+    OnProjectileRegistered.Broadcast(*Projectile);
+    return IsValid(Projectile) && LiveProjectiles.Contains(Projectile);
 }
 
 void AGirlSaviorCombatEncounter::UnregisterProjectile(AGirlSaviorTestProjectile* Projectile)
@@ -491,6 +543,7 @@ void AGirlSaviorCombatEncounter::CloseRun(EGirlSaviorRunState TerminalState)
         }
     }
     bCleanupPending = true;
+    OnRunStateChanged.Broadcast(RunState);
     UE_LOG(LogGirlSaviorEncounter, Display, TEXT("First fight ended (%s)."),
         TerminalState == EGirlSaviorRunState::Defeated ? TEXT("defeat") : TEXT("success"));
 }

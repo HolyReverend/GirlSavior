@@ -1,6 +1,6 @@
 # Combat prototype — Feedback and presentation
 
-**Status.** Implementation specification for Unreal Engine 5.9. Build the minimum warning and hit cues with CP1 and CP2. Complete the presentation and playtest in CP4.
+**Status.** CP4 presentation is wired in `CombatPrototypeRoute` on Unreal Engine 5.9. The earlier `CombatPrototype` map remains available for isolated CP1 and CP2 checks.
 
 Follow the [stage plan](ImplementationPlan.md) and consume the contracts in [Damage](DamageSystem.md), [Basic enemies](BasicEnemies.md), and [Waves](EnemyWaves.md). Gameplay code decides when a shot, attack, hit, or death occurs. Blueprints, materials, audio, and widgets display those decisions.
 
@@ -8,7 +8,7 @@ Design sources are [Shot feedback](../../GameDesign/Mechanics/Weapons/ShotFeedba
 
 ## Step 1 — Wire a minimal presentation pass
 
-1. In `Content/Maps/TestMaps/CombatPrototype.umap`, place one `BP_CombatFeedbackPresenter` with an explicit reference to `AGirlSaviorCombatEncounter`. The presenter owns the local-player widget, active warning visuals, and cosmetic bindings. Subscribe before the encounter enables combat. Include any already registered combatants after binding and make registration idempotent. Keep each receiver bound through the dispatch of its lethal result even if the living roster removes it during that dispatch. Release its binding on actor teardown. Unbind, remove the widget, cancel presentation timers, and clear spawned visual references when the presenter ends play. A new PIE world or retry creates fresh bindings.
+1. In `Content/Maps/TestMaps/CombatPrototypeRoute.umap`, place one `BP_CombatFeedbackPresenter` with an explicit reference to `AGirlSaviorCombatEncounter`. The presenter configures the local HUD and owns active warning visuals and cosmetic bindings. Subscribe before the encounter enables combat. Include any already registered combatants after binding and make registration idempotent. Keep each receiver bound through the dispatch of its lethal result even if the living roster removes it during that dispatch. Release its binding on actor teardown. Unbind, remove the widget, cancel presentation timers, and clear spawned visual references when the presenter ends play. A new PIE world or retry creates fresh bindings.
 2. Author the presenter, `BP_CombatWarning`, and the visual projectile variants under `Content/Blueprints/Combat/`. Add `WBP_CombatHUD` and `WBP_CombatOutcome` under `Content/Blueprints/Combat/UI/`. Put reusable cue materials and audio under `Content/Art/Materials/Combat/` and `Content/Audio/Combat/` as needed. Expose cue asset references and cosmetic timing as Blueprint defaults. Attack geometry, timing, and damage use the gameplay Data Assets.
 3. Start with flat floor strips or simple mesh sections, visible projectile meshes, and three clearly different silhouettes. Give warnings, projectile effects, and corpse visuals no collision, no navigation influence, and small bounded lifetimes. Give the greybox room a dim ambient baseline and attach a small point light to the hero as a Torch readability fixture. Test in the actual gameplay view with the map's normal foreground fading and a pillar.
 4. CP1 needs one readable sector, one player shot trail, a hit pulse, a health readout, an unmistakable enemy death, and a minimal defeat panel with working Retry. CP2 adds the line, charge lane, enemy projectile trail, and their cancellation. A room fails attack acceptance if its geometry hides a warning that the player needs to react to. Complete these checks before evaluating waves in CP3.
@@ -17,7 +17,7 @@ Design sources are [Shot feedback](../../GameDesign/Mechanics/Weapons/ShotFeedba
 
 | Event source | Presentation response |
 | --- | --- |
-| `UGirlSaviorFireComponent::OnShotCue` | Short local muzzle pulse, dry pistol sound, and small additive kick on the visible weapon or its mesh. Use the launch direction for the cue. At point-blank range place the effect on the actor's side of the blocker. Keep camera, aim, collision, and launch origin independent of the cosmetic muzzle. |
+| `UGirlSaviorFireComponent::OnCombatShotCue` | Short local muzzle pulse, dry pistol sound, and small additive kick on the visible weapon or its mesh. Use the launch direction for the cue. At point-blank range place the effect on the actor's side of the blocker. Keep camera, aim, collision, and launch origin independent of the cosmetic muzzle. |
 | Moving player projectile | Bright thin head and short trail sampled over distance traveled. Moving enemy projectile uses a larger elongated head and dense short tail. Use the collision root for the head. Fade the last traveled trail at stop or expiry. |
 | `OnResolvedImpact` on a projectile | Spawn geometry contact at the resolved position, oriented by impact normal. Start with dull debris and a local thud. If the map has stone and metal physical materials, give metal a narrow spark and short ring. Use the target receiver for target reactions. Free-flight expiry fades silently. |
 | `OnDamageResolved` on a live combatant's receiver | Read the result snapshot. Accepted health loss produces a brief directed hit accent and one body-impact sound. Hero reaction is a short overlay while moving. Enemy reaction is additive and leaves the attack pose and gameplay phase intact. |
@@ -26,7 +26,7 @@ Design sources are [Shot feedback](../../GameDesign/Mechanics/Weapons/ShotFeedba
 | `OnDamageResolved` with `bKilled` | Play one finisher cue per target, using the contact position and the lethal snapshot. Start the fall even when the enemy lies outside Torch light. A visible local mark and audible falling accent give confirmation. |
 | Attack preparation, update, and end from `UGirlSaviorEnemyAttackComponent` | Create, mutate, and release one warning keyed by `AttackId` within the current encounter. Use the exact shapes and phases in Step 3. |
 
-Keep `BP_TestProjectile.OnImpactCue` and the existing shot event wired for Demo compatibility. The combat prototype binds one presentation route per event. Check that an enemy hit generates one target reaction even when a projectile publishes its own contact classification. Play impact audio and short-lived effects on independent cosmetic instances so destruction of the projectile cannot cut them off early.
+Keep `BP_TestProjectile.OnImpactCue` and `UGirlSaviorFireComponent::OnShotCue` wired for Demo compatibility. A launch dispatches the cue for its active presentation route once. An enemy hit generates one receiver reaction even when the projectile publishes its own contact classification. Impact audio and short-lived effects persist independently of the projectile.
 
 ## Step 3 — Show the real warning shape and its lifetime
 
@@ -48,6 +48,13 @@ Use outlines and shape for recognition with audio muted. Keep sparks, dust, muzz
 - Play the enemy's short fall on its mesh or a collision-free visual proxy after native death removes it from the living roster and disables blocking. Use a distinctive final pose for each role. Keep the corpse visible for at least 3 game seconds, then allow removal outside the gameplay frame. Around 10 game seconds, fade any remaining corpse in view and remove it. These are prototype tuning targets. Corpses and cues have no effect on damage, navigation, or spawn capacity.
 - On lethal hero damage, consume the encounter's committed defeat snapshot, including the immutable lethal source label, to start the fall and show `Герой погиб` and the cause. Use localized `FText` for `Удар преследователя`, `Снаряд стрелка`, `Бросок таранщика`, and fallback `Смертельное попадание`. Keep the same camera and hero light through the fall. Prioritize the lethal hit audio, then lower combat audio briefly.
 - After a proposed **1.25 game seconds**, show the outcome panel in defeat mode with the same cause and a `Повторить` button. On success, open the same panel immediately with `Выход достигнут` and the retry button. Keep gameplay input closed. Route button focus through UI input, then reload the current map using the normal level restart path. Disarm the button after the first click. Keep defeat delay in game time with combat shut down by the encounter. A world pause freezes the delay. The prototype panel ends this map run. Expedition results, persistence, and rewards are future integrations.
+
+## CP4 authored setup
+
+- The presenter uses world-depth line components for warnings, impacts, trail fades, and the dash protection outline. The attack snapshots own the floor geometry. The native UMG parents own the health, configured barrier, dash status, immediate death notice, and modal result.
+- The route uses fixed exposure at EV 0, directional fill of 0.09 lux, and skylight intensity 0.035. The warm Torch starts at 3600 lm with a 950 cm radius, 110 cm above the capsule center. It stays with the hero through defeat. Only the hero mesh's own shadow is suppressed to keep the floor under the hero readable.
+- `Content/Audio/Combat` contains 13 original short cues and `ATT_CombatCue`. Positional attenuation uses the local hero as the listener. The defeat sting plays in the foreground while active combat audio fades out.
+- `DA_HeroCombatBarrierFixture` supplies 4 barrier for isolated acceptance sessions. The regular route keeps its authored hero vitals.
 
 ## Acceptance in CombatPrototype PIE
 

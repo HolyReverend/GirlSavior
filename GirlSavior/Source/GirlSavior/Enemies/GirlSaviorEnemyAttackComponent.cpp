@@ -174,7 +174,7 @@ FVector UGirlSaviorEnemyAttackComponent::DirectionTo(const AGirlSaviorCharacter&
 bool UGirlSaviorEnemyAttackComponent::ShouldHoldPosition(const AGirlSaviorCharacter& Hero) const
 {
     const auto* Body = Enemy.Get();
-    if (!Body || !Visual.IsValid())
+    if (!Body || !Visual.IsValid() || !OwningEncounter.IsValid() || !OwningEncounter->CanPresentCombatWarning())
     {
         return false;
     }
@@ -654,7 +654,14 @@ void UGirlSaviorEnemyAttackComponent::FinishCharge(const FHitResult* Hit, double
 {
     if (Hit && (!Hit->GetActor() || !Hit->GetActor()->IsA<APawn>()))
     {
-        DrawDebugSphere(GetWorld(), Hit->ImpactPoint, 24.f, 10, FColor::Orange, false, 0.2f, 0, 2.f);
+        if (OwningEncounter->HasFeedbackPresenter())
+        {
+            OnChargeBlocked.Broadcast(Hit->ImpactPoint, Hit->ImpactNormal);
+        }
+        else
+        {
+            DrawDebugSphere(GetWorld(), Hit->ImpactPoint, 24.f, 10, FColor::Orange, false, 0.2f, 0, 2.f);
+        }
     }
     UE_LOG(LogGirlSaviorEnemyAttack, Log, TEXT("Charge attack %lld stopped against %s at %s."), Cue.AttackId,
         Hit ? *GetNameSafe(Hit->GetActor()) : TEXT("range or floor limit"), *Enemy->GetActorLocation().ToCompactString());
@@ -736,12 +743,20 @@ void UGirlSaviorEnemyAttackComponent::NotifyAttackEnded(EGirlSaviorAttackEndReas
 void UGirlSaviorEnemyAttackComponent::PublishCue()
 {
     const FGirlSaviorAttackCue Snapshot = Cue;
+    if (auto* Body = Enemy.Get())
+    {
+        OnNativeAttackCue.Broadcast(*Body, Snapshot);
+    }
     OnAttackCue.Broadcast(Snapshot);
 }
 
 // World-depth batched lines make the same clipped shape visible in normal runtime and PIE.
 void UGirlSaviorEnemyAttackComponent::ShowShape(const bool bSwing) const
 {
+    if (OwningEncounter.IsValid() && OwningEncounter->HasFeedbackPresenter())
+    {
+        return;
+    }
     ULineBatchComponent* Batch = Visual.Get();
     Batch->Flush();
     if (Role != EGirlSaviorEnemyRole::Pursuer)

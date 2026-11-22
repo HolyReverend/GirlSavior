@@ -9,6 +9,7 @@ class AGirlSaviorTestProjectile;
 class AGirlSaviorCombatEncounter;
 class UGirlSaviorCombatPistolSettings;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGirlSaviorShotCue, FVector, Position, FVector, Direction);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGirlSaviorCombatShotCue, FVector, FVector);
 
 UCLASS(ClassGroup=(Prototype), meta=(BlueprintSpawnableComponent))
 class GIRLSAVIOR_API UGirlSaviorFireComponent : public UActorComponent
@@ -32,6 +33,8 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category="Prototype|Fire")
 	FGirlSaviorShotCue OnShotCue;
+	FGirlSaviorCombatShotCue OnCombatShotCue;
+	void PublishShotCue(FVector Position, FVector Direction);
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 protected:
 	virtual void BeginPlay() override;

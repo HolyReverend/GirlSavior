@@ -10,6 +10,7 @@
 class AGirlSaviorCharacter;
 class AGirlSaviorCombatTarget;
 class AGirlSaviorCombatDoor;
+class AGirlSaviorCombatFeedbackPresenter;
 class AGirlSaviorCombatRoom;
 class AGirlSaviorEnemyCharacter;
 class AGirlSaviorSafeArea;
@@ -28,6 +29,9 @@ enum class EGirlSaviorRunState : uint8
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGirlSaviorCombatantEvent, AGirlSaviorEnemyCharacter*, Enemy);
+DECLARE_MULTICAST_DELEGATE_OneParam(FGirlSaviorEncounterHeroChanged, AGirlSaviorCharacter*);
+DECLARE_MULTICAST_DELEGATE_OneParam(FGirlSaviorEncounterStateChanged, EGirlSaviorRunState);
+DECLARE_MULTICAST_DELEGATE_OneParam(FGirlSaviorCombatProjectileRegistered, AGirlSaviorTestProjectile&);
 
 UCLASS()
 class GIRLSAVIOR_API AGirlSaviorCombatEncounter : public AActor
@@ -71,6 +75,10 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Combat")
     FGirlSaviorCombatantEvent OnEnemyRemoved;
 
+    FGirlSaviorEncounterHeroChanged OnHeroChanged;
+    FGirlSaviorEncounterStateChanged OnRunStateChanged;
+    FGirlSaviorCombatProjectileRegistered OnProjectileRegistered;
+
     UFUNCTION(BlueprintPure, Category = "Combat")
     EGirlSaviorRunState GetRunState() const { return RunState; }
 
@@ -105,6 +113,12 @@ public:
     bool Retry();
 
     bool CanEnemyEngage(const AActor& Source) const;
+    bool AttachFeedback(AGirlSaviorCombatFeedbackPresenter& Presenter);
+    void DetachFeedback(const AGirlSaviorCombatFeedbackPresenter& Presenter);
+    bool HasFeedbackPresenter() const { return Feedback.IsValid(); }
+    bool CanPresentCombatWarning() const;
+    bool IsPresentationBoundsOffscreen(const FBox& Bounds) const;
+    TArray<AGirlSaviorEnemyCharacter*> GetLivingEnemies() const;
     bool IsPointInSafeArea(const FVector& Point) const;
     bool CrossesSafeArea(const FVector& Start, const FVector& End, float Radius = 0.f) const;
     bool CanTraverseCombatSegment(const FVector& Start, const FVector& End, float Radius) const;
@@ -186,6 +200,7 @@ private:
     bool IsRoomReachable(const AGirlSaviorCombatRoom* From, const AGirlSaviorCombatRoom* To) const;
 
     TWeakObjectPtr<AGirlSaviorCharacter> Hero;
+    TWeakObjectPtr<AGirlSaviorCombatFeedbackPresenter> Feedback;
     TMap<TWeakObjectPtr<AGirlSaviorEnemyCharacter>, FEnemyRecord> LiveEnemies;
     TSet<TWeakObjectPtr<AGirlSaviorTestProjectile>> LiveProjectiles;
     TArray<TWeakObjectPtr<AGirlSaviorEnemyCharacter>> PendingRetirements;

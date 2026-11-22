@@ -10,7 +10,7 @@ public class GirlSavior : ModuleRules
 
 		PrivateIncludePaths.Add(ModuleDirectory);
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "GeometryCore", "GeometryAlgorithms", "AIModule", "NavigationSystem", "Slate", "SlateCore" });
 

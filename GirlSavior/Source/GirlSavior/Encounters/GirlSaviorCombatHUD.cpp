@@ -2,105 +2,314 @@
 
 #include "Characters/GirlSaviorCharacter.h"
 #include "Characters/GirlSaviorCharacterMovementComponent.h"
+#include "Characters/GirlSaviorDashSettings.h"
 #include "Combat/GirlSaviorDamageReceiverComponent.h"
+#include "Components/Button.h"
 #include "Core/GirlSaviorPlayerController.h"
 #include "Encounters/GirlSaviorCombatEncounter.h"
+#include "Encounters/GirlSaviorCombatWidgets.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/LocalPlayer.h"
 #include "EngineUtils.h"
 #include "Framework/Application/SlateApplication.h"
-#include "GameFramework/PlayerController.h"
-#include "Styling/CoreStyle.h"
 #include "TimerManager.h"
-#include "Widgets/Input/SButton.h"
-#include "Widgets/Layout/SBorder.h"
-#include "Widgets/SBoxPanel.h"
-#include "Widgets/SOverlay.h"
 #include "Widgets/SViewport.h"
-#include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "GirlSaviorCombatHUD"
 
-// The viewport owns presentation and the encounter owns every gameplay transition.
+void AGirlSaviorCombatHUD::ReleasePresentation()
+{
+    UnbindEncounter();
+    RemovePresentation();
+}
+
+namespace
+{
+const FLinearColor MutedColor(0.55f, 0.61f, 0.65f);
+const FLinearColor ReadyColor(0.74f, 0.84f, 0.78f);
+const FLinearColor ProtectedColor(0.35f, 0.85f, 0.96f);
+const FLinearColor CooldownColor(0.93f, 0.64f, 0.38f);
+
+FText GetDefeatCause(const AGirlSaviorCombatEncounter& Encounter)
+{
+    const FText& Cause = Encounter.GetDefeatResult().Spec.Cause;
+    return Cause.IsEmpty() ? LOCTEXT("UnknownCause", "Смертельное попадание") : Cause;
+}
+}
+
 void AGirlSaviorCombatHUD::BeginPlay()
 {
     Super::BeginPlay();
-    const auto* Player = GetOwningPlayerController() ? GetOwningPlayerController()->GetLocalPlayer() : nullptr;
-    Viewport = Player ? Player->ViewportClient.Get() : nullptr;
-    if (!Viewport.IsValid())
+    const auto* Controller = GetOwningPlayerController();
+    if (!Controller || !Controller->GetLocalPlayer())
     {
         return;
-    }
-    for (TActorIterator<AGirlSaviorCombatEncounter> It(GetWorld()); It; ++It)
-    {
-        Encounter = *It;
-        break;
     }
     if (!Encounter.IsValid())
     {
+        // Isolated fixture maps still use the native widgets without a feedback presenter.
+        for (TActorIterator<AGirlSaviorCombatEncounter> It(GetWorld()); It; ++It)
+        {
+            ConfigurePresentation(**It, nullptr, nullptr);
+            break;
+        }
+    }
+}
+
+void AGirlSaviorCombatHUD::ConfigurePresentation(AGirlSaviorCombatEncounter& InEncounter,
+    TSubclassOf<UGirlSaviorCombatVitalsWidget> InVitalsClass,
+    TSubclassOf<UGirlSaviorCombatOutcomeWidget> InOutcomeClass)
+{
+    UClass* ResolvedVitalsClass = InVitalsClass ? InVitalsClass.Get() : UGirlSaviorCombatVitalsWidget::StaticClass();
+    UClass* ResolvedOutcomeClass = InOutcomeClass ? InOutcomeClass.Get() : UGirlSaviorCombatOutcomeWidget::StaticClass();
+    if (Encounter.Get() == &InEncounter && VitalsClass.Get() == ResolvedVitalsClass
+        && OutcomeClass.Get() == ResolvedOutcomeClass && VitalsWidget && OutcomeWidget)
+    {
         return;
     }
+    UnbindEncounter();
+    Encounter = &InEncounter;
+    VitalsClass = ResolvedVitalsClass;
+    OutcomeClass = ResolvedOutcomeClass;
+    InEncounter.OnHeroChanged.AddUObject(this, &ThisClass::BindHero);
+    InEncounter.OnRunStateChanged.AddUObject(this, &ThisClass::HandleRunStateChanged);
+    RebuildPresentation();
+}
 
-    const FSlateBrush* PanelBrush = FCoreStyle::Get().GetBrush("WhiteBrush");
-    const FLinearColor PanelColor(0.025f, 0.035f, 0.052f, 0.94f);
-    const FLinearColor TextColor(0.91f, 0.94f, 0.96f);
-    const FLinearColor DetailColor(0.51f, 0.81f, 0.82f);
+void AGirlSaviorCombatHUD::RebuildPresentation()
+{
+    RemovePresentation();
+    APlayerController* Controller = GetOwningPlayerController();
+    const ULocalPlayer* LocalPlayer = Controller ? Controller->GetLocalPlayer() : nullptr;
+    if (!LocalPlayer || !LocalPlayer->ViewportClient)
+    {
+        return;
+    }
+    VitalsWidget = CreateWidget<UGirlSaviorCombatVitalsWidget>(Controller, VitalsClass);
+    OutcomeWidget = CreateWidget<UGirlSaviorCombatOutcomeWidget>(Controller, OutcomeClass);
+    if (!VitalsWidget || !OutcomeWidget)
+    {
+        RemovePresentation();
+        return;
+    }
+    VitalsWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
+    OutcomeWidget->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+    VitalsWidget->AddToPlayerScreen(20);
+    OutcomeWidget->AddToPlayerScreen(30);
+    OutcomeWidget->OnRetryRequested.AddUObject(this, &ThisClass::HandleRetry);
 
-    Overlay = SNew(SOverlay)
-        .Visibility(EVisibility::SelfHitTestInvisible)
-        + SOverlay::Slot()
-        .HAlign(HAlign_Left).VAlign(VAlign_Top).Padding(24)
-        [
-            SNew(SBorder)
-            .Visibility(EVisibility::HitTestInvisible)
-            .BorderImage(PanelBrush).BorderBackgroundColor(PanelColor).Padding(12)
-            [
-                SNew(SVerticalBox)
-                + SVerticalBox::Slot().AutoHeight()
-                [
-                    SNew(STextBlock).Text_UObject(this, &ThisClass::GetVitalsText)
-                        .Font(FCoreStyle::GetDefaultFontStyle("Bold", 16)).ColorAndOpacity(TextColor)
-                ]
-                + SVerticalBox::Slot().AutoHeight().Padding(0, 4, 0, 0)
-                [
-                    SNew(STextBlock).Text_UObject(this, &ThisClass::GetDashText)
-                        .Font(FCoreStyle::GetDefaultFontStyle("Regular", 13)).ColorAndOpacity(DetailColor)
-                ]
-            ]
-        ]
-        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
-        [
-            SNew(SBorder)
-            .Visibility_UObject(this, &ThisClass::GetOutcomeVisibility)
-            .BorderImage(PanelBrush).BorderBackgroundColor(PanelColor).Padding(26)
-            [
-                SNew(SVerticalBox)
-                + SVerticalBox::Slot().AutoHeight()
-                [
-                    SNew(STextBlock).Text_UObject(this, &ThisClass::GetOutcomeTitle)
-                        .Font(FCoreStyle::GetDefaultFontStyle("Bold", 27)).ColorAndOpacity(TextColor)
-                ]
-                + SVerticalBox::Slot().AutoHeight().Padding(0, 6, 0, 12)
-                [
-                    SNew(STextBlock).Text_UObject(this, &ThisClass::GetOutcomeCause)
-                        .Font(FCoreStyle::GetDefaultFontStyle("Regular", 15)).ColorAndOpacity(DetailColor)
-                ]
-                + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
-                [
-                    SAssignNew(RetryButton, SButton).Text(LOCTEXT("Retry", "Повторить"))
-                        .OnClicked_UObject(this, &ThisClass::HandleRetry)
-                ]
-            ]
-        ];
-    Viewport->AddViewportWidgetContent(Overlay.ToSharedRef(), 20);
-    // The viewport survives level travel and can still have the old retry button's focus.
+    BindHero(Encounter->GetHero());
+    HandleRunStateChanged(Encounter->GetRunState());
+
+    // Retry reuses the game viewport. Return focus there once the new HUD exists.
     GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateUObject(this, &ThisClass::FocusGameplayViewport));
+}
+
+void AGirlSaviorCombatHUD::RemovePresentation()
+{
+    if (VitalsWidget)
+    {
+        VitalsWidget->RemoveFromParent();
+        VitalsWidget = nullptr;
+    }
+    if (OutcomeWidget)
+    {
+        OutcomeWidget->OnRetryRequested.RemoveAll(this);
+        OutcomeWidget->RemoveFromParent();
+        OutcomeWidget = nullptr;
+    }
+}
+
+void AGirlSaviorCombatHUD::UnbindEncounter()
+{
+    if (AGirlSaviorCombatEncounter* Current = Encounter.Get())
+    {
+        Current->OnHeroChanged.RemoveAll(this);
+        Current->OnRunStateChanged.RemoveAll(this);
+    }
+    Encounter.Reset();
+    BindHero(nullptr);
+}
+
+// Health and barrier are sampled once on possession, then updated together by the committed damage event.
+void AGirlSaviorCombatHUD::BindHero(AGirlSaviorCharacter* Hero)
+{
+    if (auto* Previous = BoundHero.Get())
+    {
+        Previous->MovementModeChangedDelegate.RemoveDynamic(this, &ThisClass::HandleMovementModeChanged);
+    }
+    if (auto* PreviousReceiver = Receiver.Get())
+    {
+        PreviousReceiver->OnDamageResolved.RemoveDynamic(this, &ThisClass::HandleDamageResolved);
+    }
+    BoundHero = Hero;
+    Receiver = Hero ? Hero->GetDamageReceiver() : nullptr;
+    if (Hero)
+    {
+        Hero->MovementModeChangedDelegate.AddUniqueDynamic(this, &ThisClass::HandleMovementModeChanged);
+    }
+    auto* Current = Receiver.Get();
+    if (Current)
+    {
+        Current->OnDamageResolved.AddUniqueDynamic(this, &ThisClass::HandleDamageResolved);
+    }
+    if (VitalsWidget)
+    {
+        VitalsWidget->SetVisibility(Current ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+        if (Current)
+        {
+            VitalsWidget->SetVitals(Current->GetHealth(), Current->GetMaxHealth(),
+                Current->GetBarrier(), Current->GetInitialBarrier());
+        }
+        else
+        {
+            VitalsWidget->SetVitals(0.0, 0.0, 0.0, 0.0);
+        }
+    }
+    DashReadout = EDashReadout::Unset;
+    CacheDashDeadline();
+    RefreshDash();
+}
+
+void AGirlSaviorCombatHUD::HandleDamageResolved(const FGirlSaviorDamageResult& Result)
+{
+    if (VitalsWidget && Receiver.IsValid() && Result.Outcome == EGirlSaviorDamageOutcome::Applied)
+    {
+        VitalsWidget->SetVitals(Result.HealthAfter, Receiver->GetMaxHealth(),
+            Result.BarrierAfter, Receiver->GetInitialBarrier());
+    }
+}
+
+void AGirlSaviorCombatHUD::HandleMovementModeChanged(ACharacter* Character, EMovementMode PreviousMode, uint8 PreviousCustomMode)
+{
+    // Dash writes its cooldown deadline before entering the custom movement mode.
+    CacheDashDeadline();
+    RefreshDash();
+}
+
+void AGirlSaviorCombatHUD::CacheDashDeadline()
+{
+    const auto* Hero = BoundHero.Get();
+    const auto* Move = Hero ? Cast<UGirlSaviorCharacterMovementComponent>(Hero->GetCharacterMovement()) : nullptr;
+    DashReadyTime = Move ? GetWorld()->GetTimeSeconds() + Move->GetDashCooldownRemaining() : 0.0;
+}
+
+void AGirlSaviorCombatHUD::RefreshDash()
+{
+    if (!VitalsWidget)
+    {
+        return;
+    }
+    const auto* Hero = BoundHero.Get();
+    const auto* Move = Hero ? Cast<UGirlSaviorCharacterMovementComponent>(Hero->GetCharacterMovement()) : nullptr;
+    const auto* Controller = Hero ? Cast<AGirlSaviorPlayerController>(Hero->GetController()) : nullptr;
+    EDashReadout State = EDashReadout::Unavailable;
+    int32 RemainingTenths = 0;
+    if (Move && Controller && Encounter.IsValid() && Encounter->GetRunState() == EGirlSaviorRunState::Active
+        && Receiver.IsValid() && Receiver->IsAlive() && Controller->CanUseGameplayInput()
+        && !Controller->IsInSafeArea() && !Controller->IsMoveInputIgnored())
+    {
+        if (Move->IsDashing())
+        {
+            State = Move->IsDashProtected() ? EDashReadout::Protected : EDashReadout::Dashing;
+        }
+        else if (Move->MovementMode == MOVE_Walking && Move->DashSettings && Move->DashSettings->IsValidForDash())
+        {
+            const double Remaining = DashReadyTime - GetWorld()->GetTimeSeconds();
+            if (Remaining > 0.0)
+            {
+                State = EDashReadout::Cooldown;
+                RemainingTenths = FMath::CeilToInt32(FMath::Min(Remaining * 10.0, double(MAX_int32)));
+            }
+            else
+            {
+                State = EDashReadout::Ready;
+            }
+        }
+    }
+    if (DashReadout == State && DashCooldownTenths == RemainingTenths)
+    {
+        return;
+    }
+    DashReadout = State;
+    DashCooldownTenths = RemainingTenths;
+    switch (State)
+    {
+    case EDashReadout::Ready:
+        VitalsWidget->SetDash(LOCTEXT("DashReady", "Рывок готов · Left Shift"), ReadyColor);
+        break;
+    case EDashReadout::Protected:
+        VitalsWidget->SetDash(LOCTEXT("DashProtected", "Защита от прямых атак"), ProtectedColor);
+        break;
+    case EDashReadout::Dashing:
+        VitalsWidget->SetDash(LOCTEXT("Dashing", "Рывок"), ReadyColor);
+        break;
+    case EDashReadout::Cooldown:
+    {
+        FNumberFormattingOptions Format;
+        Format.SetMinimumFractionalDigits(1).SetMaximumFractionalDigits(1);
+        VitalsWidget->SetDash(FText::Format(LOCTEXT("DashCooldown", "Рывок через {0} с"),
+            FText::AsNumber(RemainingTenths / 10.0, &Format)), CooldownColor);
+        break;
+    }
+    default:
+        VitalsWidget->SetDash(LOCTEXT("DashUnavailable", "Рывок недоступен"), MutedColor);
+        break;
+    }
+}
+
+void AGirlSaviorCombatHUD::HandleRunStateChanged(EGirlSaviorRunState State)
+{
+    if (OutcomeWidget && Encounter.IsValid())
+    {
+        if (State == EGirlSaviorRunState::Defeated)
+        {
+            OutcomeWidget->ShowDeathNotice(GetDefeatCause(*Encounter.Get()));
+        }
+        else if (State != EGirlSaviorRunState::Succeeded)
+        {
+            OutcomeWidget->ClearResult();
+        }
+        RefreshOutcome();
+    }
+    RefreshDash();
+}
+
+void AGirlSaviorCombatHUD::RefreshOutcome()
+{
+    if (!OutcomeWidget || !Encounter.IsValid() || OutcomeWidget->IsOutcomePanelVisible()
+        || !Encounter->IsOutcomeVisible())
+    {
+        return;
+    }
+    const bool bDefeated = Encounter->GetRunState() == EGirlSaviorRunState::Defeated;
+    OutcomeWidget->ShowResult(bDefeated, bDefeated ? GetDefeatCause(*Encounter.Get()) : FText::GetEmpty());
+    if (APlayerController* Controller = GetOwningPlayerController())
+    {
+        Controller->bShowMouseCursor = true;
+        FInputModeUIOnly Mode;
+        Mode.SetWidgetToFocus(OutcomeWidget->GetRetryButton()->TakeWidget());
+        Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+        Controller->SetInputMode(Mode);
+        OutcomeWidget->GetRetryButton()->SetUserFocus(Controller);
+    }
+}
+
+void AGirlSaviorCombatHUD::HandleRetry()
+{
+    if (Encounter.IsValid())
+    {
+        Encounter->Retry();
+    }
 }
 
 void AGirlSaviorCombatHUD::FocusGameplayViewport()
 {
-    const TSharedPtr<SViewport> GameWidget = Viewport.IsValid() ? Viewport->GetGameViewportWidget() : nullptr;
-    if (FSlateApplication::IsInitialized() && GameWidget.IsValid() && Encounter.IsValid()
+    const auto* Controller = GetOwningPlayerController();
+    const auto* Player = Controller ? Controller->GetLocalPlayer() : nullptr;
+    const auto* Viewport = Player ? Player->ViewportClient.Get() : nullptr;
+    const TSharedPtr<SViewport> GameWidget = Viewport ? Viewport->GetGameViewportWidget() : nullptr;
+    if (FSlateApplication::IsInitialized() && GameWidget && Encounter.IsValid()
         && Encounter->GetRunState() == EGirlSaviorRunState::Waiting)
     {
         FSlateApplication::Get().SetKeyboardFocus(GameWidget, EFocusCause::SetDirectly);
@@ -110,92 +319,15 @@ void AGirlSaviorCombatHUD::FocusGameplayViewport()
 void AGirlSaviorCombatHUD::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
-    if (!bOutcomeFocused && FSlateApplication::IsInitialized() && RetryButton.IsValid()
-        && Encounter.IsValid() && Encounter->IsOutcomeVisible())
-    {
-        bOutcomeFocused = true;
-        FSlateApplication::Get().SetKeyboardFocus(RetryButton, EFocusCause::SetDirectly);
-    }
-}
-
-FText AGirlSaviorCombatHUD::GetVitalsText() const
-{
-    const auto* Hero = Encounter.IsValid() ? Encounter->GetHero() : nullptr;
-    if (!Hero)
-    {
-        return FText::GetEmpty();
-    }
-    const UGirlSaviorDamageReceiverComponent& Vitals = *Hero->GetDamageReceiver();
-    const FText Health = FText::Format(LOCTEXT("Health", "Здоровье {0} / {1}"),
-        FText::AsNumber(Vitals.GetHealth()), FText::AsNumber(Vitals.GetMaxHealth()));
-    return Vitals.GetBarrier() > 0.0
-        ? FText::Format(LOCTEXT("WithBarrier", "{0}    Барьер {1}"), Health, FText::AsNumber(Vitals.GetBarrier()))
-        : Health;
-}
-
-FText AGirlSaviorCombatHUD::GetDashText() const
-{
-    const auto* Hero = Encounter.IsValid() ? Encounter->GetHero() : nullptr;
-    const auto* Move = Hero ? Cast<UGirlSaviorCharacterMovementComponent>(Hero->GetCharacterMovement()) : nullptr;
-    const auto* Controller = Hero ? Cast<AGirlSaviorPlayerController>(Hero->GetController()) : nullptr;
-    if (!Move || Encounter->GetRunState() != EGirlSaviorRunState::Active
-        || !Controller || !Controller->CanUseGameplayInput() || Controller->IsInSafeArea())
-    {
-        return LOCTEXT("DashUnavailable", "Рывок недоступен");
-    }
-    if (Move->IsDashProtected())
-    {
-        return LOCTEXT("DashProtected", "Защита от прямых попаданий");
-    }
-    const double Remaining = Move->GetDashCooldownRemaining();
-    if (Remaining <= 0.0)
-    {
-        return LOCTEXT("DashReady", "Рывок готов · Left Shift");
-    }
-    FNumberFormattingOptions Format;
-    Format.SetMinimumFractionalDigits(1).SetMaximumFractionalDigits(1);
-    return FText::Format(LOCTEXT("DashCooldown", "Рывок через {0} с"), FText::AsNumber(Remaining, &Format));
-}
-
-FText AGirlSaviorCombatHUD::GetOutcomeTitle() const
-{
-    return Encounter.IsValid() && Encounter->GetRunState() == EGirlSaviorRunState::Succeeded
-        ? LOCTEXT("Success", "Выход достигнут") : LOCTEXT("Defeat", "Герой погиб");
-}
-
-FText AGirlSaviorCombatHUD::GetOutcomeCause() const
-{
-    if (!Encounter.IsValid() || Encounter->GetRunState() != EGirlSaviorRunState::Defeated)
-    {
-        return FText::GetEmpty();
-    }
-    const FText& Cause = Encounter->GetDefeatResult().Spec.Cause;
-    return Cause.IsEmpty() ? LOCTEXT("UnknownCause", "Смертельное попадание") : Cause;
-}
-
-EVisibility AGirlSaviorCombatHUD::GetOutcomeVisibility() const
-{
-    return Encounter.IsValid() && Encounter->IsOutcomeVisible() ? EVisibility::Visible : EVisibility::Collapsed;
-}
-
-FReply AGirlSaviorCombatHUD::HandleRetry()
-{
-    if (Encounter.IsValid())
-    {
-        Encounter->Retry();
-    }
-    return FReply::Handled();
+    RefreshDash();
+    RefreshOutcome();
 }
 
 void AGirlSaviorCombatHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
     GetWorldTimerManager().ClearAllTimersForObject(this);
-    if (Viewport.IsValid() && Overlay.IsValid())
-    {
-        Viewport->RemoveViewportWidgetContent(Overlay.ToSharedRef());
-    }
-    Overlay.Reset();
-    RetryButton.Reset();
+    UnbindEncounter();
+    RemovePresentation();
     Super::EndPlay(EndPlayReason);
 }
 

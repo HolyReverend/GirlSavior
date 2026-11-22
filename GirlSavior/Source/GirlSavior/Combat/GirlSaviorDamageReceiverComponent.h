@@ -17,6 +17,7 @@ enum class EGirlSaviorDamageKind : uint8
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGirlSaviorAcceptedDamage, EGirlSaviorDamageKind, Kind, float, Amount);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGirlSaviorDamageResolved, const FGirlSaviorDamageResult&, Result);
 DECLARE_MULTICAST_DELEGATE_OneParam(FGirlSaviorDamageDeath, const FGirlSaviorDamageResult&);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGirlSaviorDamagePresentation, AActor&, const FGirlSaviorDamageResult&);
 DECLARE_DELEGATE_RetVal_OneParam(EGirlSaviorDamageOutcome, FGirlSaviorDamageAdmission, const FGirlSaviorDamageSpec&);
 
 UCLASS(ClassGroup = (Prototype), meta = (BlueprintSpawnableComponent))
@@ -53,6 +54,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Prototype|Damage")
 	double GetBarrier() const { return Barrier; }
 
+	UFUNCTION(BlueprintPure, Category = "Prototype|Damage")
+	double GetInitialBarrier() const { return InitialBarrier; }
+
 	const FGirlSaviorDamageResult& GetLastLethalResult() const { return LastLethalResult; }
 
 	// Custom run/boundary validation. Applied admits a hit, Rejected suppresses any presentation.
@@ -60,6 +64,7 @@ public:
 
 	// Structural listeners receive committed death before presentation. Defer actor teardown.
 	FGirlSaviorDamageDeath OnDied;
+	FGirlSaviorDamagePresentation OnDamagePresentation;
 
 	UPROPERTY(BlueprintAssignable, Category = "Prototype|Damage")
 	FGirlSaviorDamageResolved OnDamageResolved;
@@ -80,6 +85,7 @@ private:
 	double MaxHealth = 0.0;
 	double Health = 0.0;
 	double Barrier = 0.0;
+	double InitialBarrier = 0.0;
 	double PhysicalResistance = 0.0;
 	double MagicalResistance = 0.0;
 	bool bHasVitals = false;

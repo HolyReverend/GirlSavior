@@ -19,3 +19,7 @@
 - По результатам уточнить длительность и число розжигов, параметры света и правила покупки улучшений Факела и Костра.
 
 [Факел](../GameDesign/Mechanics/Expeditions/Torch.md) · [Безопасные комнаты](../GameDesign/Mechanics/Expeditions/SafeRooms.md) · [Костёр](../GameDesign/Mechanics/Camp/CampHub.md#костёр)
+
+В CP4 добавлен тестовый тёплый Факел на маршруте боевого прототипа. Стартовые значения — 3600 лм и радиус 950 см. Источник остаётся при герое во время падения. Проверку улучшений и очагов проводим в вылазке. [Настройки прототипа](../Technical/CombatPrototype/CombatFeedback.md#cp4-authored-setup)
+
+22 ноября 2026 года пользователь подтвердил ручную приёмку CP4. [Результаты этапа](../Technical/CombatPrototype/ImplementationPlan.md#cp4-execution-record--2026-11-22)

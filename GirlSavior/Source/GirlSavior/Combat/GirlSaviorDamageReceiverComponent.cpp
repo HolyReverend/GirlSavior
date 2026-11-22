@@ -43,7 +43,7 @@ bool UGirlSaviorDamageReceiverComponent::InitializeVitals(const FGirlSaviorVital
 	Faction = InFaction;
 	MaxHealth = Settings.MaxHealth;
 	Health = MaxHealth;
-	Barrier = Settings.InitialBarrier;
+	InitialBarrier = Barrier = Settings.InitialBarrier;
 	PhysicalResistance = Settings.PhysicalResistance;
 	MagicalResistance = Settings.MagicalResistance;
 	bHasVitals = true;
@@ -157,5 +157,9 @@ FGirlSaviorDamageResult UGirlSaviorDamageReceiverComponent::ResolveDamage(const 
 		OnDamageAccepted.Broadcast(EGirlSaviorDamageKind::DirectProjectile, LegacyAmount);
 	}
 	OnDamageResolved.Broadcast(Result);
+	if (IsValid(Owner))
+	{
+		OnDamagePresentation.Broadcast(*GetOwner(), Result);
+	}
 	return Result;
 }

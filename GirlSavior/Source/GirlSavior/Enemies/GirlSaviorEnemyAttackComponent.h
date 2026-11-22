@@ -73,6 +73,8 @@ struct FGirlSaviorAttackCue
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGirlSaviorAttackCueEvent, const FGirlSaviorAttackCue&, Cue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGirlSaviorAttackEndEvent, int64, AttackId,
     EGirlSaviorAttackEndReason, Reason);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGirlSaviorNativeAttackCue, AGirlSaviorEnemyCharacter&, const FGirlSaviorAttackCue&);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FGirlSaviorChargeBlockedCue, const FVector&, const FVector&);
 
 UCLASS(ClassGroup = (Combat), meta = (BlueprintSpawnableComponent))
 class GIRLSAVIOR_API UGirlSaviorEnemyAttackComponent : public UActorComponent
@@ -100,6 +102,9 @@ public:
 
     UPROPERTY(BlueprintAssignable, Category = "Combat|Attack")
     FGirlSaviorAttackEndEvent OnAttackEnded;
+
+    FGirlSaviorNativeAttackCue OnNativeAttackCue;
+    FGirlSaviorChargeBlockedCue OnChargeBlocked;
 
 protected:
     virtual void TickComponent(float DeltaTime, ELevelTick TickType,

@@ -75,6 +75,16 @@ Document each Data Asset property, including nested fields, in Russian. Validate
 - The route probe uses swept movement at walk speed and scripted damage to separate scheduling from aiming. Local logs, map readback and PIE runners are under `GirlSavior/Saved/CP3/`.
 - **CP3 accepted.** On 2026-11-22 the user confirmed that everything worked correctly during manual acceptance. Broader expedition pacing remains tracked in [GS-013](../../OpenItems/GS-013-EnemyWavePressure.md).
 
+### CP4 execution record · 2026-11-22
+
+- Baseline `61bd352` on `main`, with `Archive/` already untracked. CP4 builds on the accepted `CombatPrototypeRoute` map. The Demo and CP2 fixture map files match their pre-stage hashes.
+- `BP_CombatFeedbackPresenter` owns the local Torch, attack warning actors, short cosmetic effects, body poses, and positional audio. `WBP_CombatHUD` shows committed health, configured barrier, and the live dash state. `WBP_CombatOutcome` shows an immediate defeat notice and its cause, then presents the same cause with Retry after 1.25 game seconds.
+- The dark fixture uses EV 0, directional fill of 0.09 lux, sky intensity 0.035, and a warm Torch at 3600 lm with a 950 cm radius. Reviewed the gameplay camera at constrained resolutions 1280 × 720 and 960 × 720. The HUD occupies the corner. The floor warnings retain their shape in darkness, including the part of the Charger stripe whose source is outside the frame.
+- The integrated route repeated the three introductions, Quiet, mixed reinforcements, and exit in approximately 37.5 game seconds. It covered 104.6 m of swept movement. The probe uses scripted movement and damage to make room and spawn timings repeatable. Separate focused PIE cases drove the normal movement and fire inputs.
+- Fifteen CP4 PIE cases passed. LMB fired once while walking and while dashing. A cooldown tap was silent. A live projectile produced one body, geometry, or protected-entrance cue as appropriate, and range expiry produced no impact. With barrier 4, damage of 3, 4, and 7 produced the expected HUD states and effects. All three real attacks produced their own lethal label, including a shot from a dead Shooter. Defeat pause preserved the game-time delay, and focused Retry loaded a fresh world.
+- The Win64 Development Editor build, all nine `GirlSavior.` Automation tests, the nine CP3 route cases, 58 CP2 checks, and 37 Demo combat checks passed. Runtime and rendering evidence is under `GirlSavior/Saved/CP4/`.
+- **CP4 accepted.** On 2026-11-22 the user confirmed that everything worked correctly during manual acceptance. The broader GDD checks for other weapons, support, Torch progression, rewards, and saved expedition results remain in their respective open-item cards. [CP4 setup and acceptance](CombatFeedback.md)
+
 ## Responsibilities and data flow
 
 ```mermaid

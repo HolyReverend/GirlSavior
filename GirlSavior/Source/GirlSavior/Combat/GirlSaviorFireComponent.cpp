@@ -117,5 +117,19 @@ void UGirlSaviorFireComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	Schedule.Launched(Now, Rate);
 	UE_LOG(LogGirlSaviorFire, Display, TEXT("Shot time=%.6f position=%s direction=%s rate=%.3f"),
 		Now, *Position.ToString(), *Direction.ToString(), Rate);
-	OnShotCue.Broadcast(Position, Direction);
+	PublishShotCue(Position, Direction);
+}
+
+// The old character Blueprint draws a debug sphere. The route supplies its own muzzle cue.
+void UGirlSaviorFireComponent::PublishShotCue(FVector Position, FVector Direction)
+{
+	const auto* Encounter = CombatEncounter.Get();
+	if (Encounter && Encounter->HasFeedbackPresenter())
+	{
+		OnCombatShotCue.Broadcast(Position, Direction);
+	}
+	else
+	{
+		OnShotCue.Broadcast(Position, Direction);
+	}
 }

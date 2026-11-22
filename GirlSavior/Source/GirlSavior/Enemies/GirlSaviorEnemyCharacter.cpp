@@ -138,10 +138,17 @@ void AGirlSaviorEnemyCharacter::HandleDeath(const FGirlSaviorDamageResult& Resul
         Encounter->UnregisterEnemy(this);
     }
 
-    // The prototype corpse stays visible briefly and never obstructs the following shot.
-    BodyVisual->SetRelativeRotation(FRotator(85, 0, 0));
-    BodyVisual->SetRelativeLocation(FVector(0, 0, -52));
-    SetLifeSpan(6.f);
+    // The presenter receives the lethal snapshot next and owns the animated pose.
+    if (!IsValid(Encounter) || !Encounter->HasFeedbackPresenter())
+    {
+        BodyVisual->SetRelativeRotation(FRotator(85, 0, 0));
+        BodyVisual->SetRelativeLocation(FVector(0, 0, -52));
+        SetLifeSpan(6.f);
+    }
+    else
+    {
+        SetLifeSpan(10.25f); // Reclaim the corpse even if the presenter is torn down early.
+    }
     UE_LOG(LogGirlSaviorEnemy, Log, TEXT("%s died from %s."), *GetName(), *Result.Spec.SourceId.ToString());
 }
 

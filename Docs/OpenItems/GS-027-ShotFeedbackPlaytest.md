@@ -19,3 +19,7 @@
 [Правила стрельбы](../GameDesign/Mechanics/Weapons/CharacterShootSystem.md) · [Проверка ролей оружия](GS-017-WeaponPlaytest.md) · [Проверка Факела](GS-026-TorchAndCampfires.md)
 
 Базовый прогон с пистолетом, укрытием и простым освещением описан в [приёмке фидбеков боевого прототипа](../Technical/CombatPrototype/CombatFeedback.md#acceptance-in-combatprototype-pie).
+
+На CP4 в CombatPrototypeRoute настоящий LMB во время ходьбы и рывка запускал выстрел с одним сигналом. Нажатие на перезарядке оставалось без сигнала, попадания в тело и укрытие давали разные эффекты, а свободный полёт заканчивался без звука контакта. Сравнение на слух, камень и металл, другие модели оружия и эффекты поддержки остаются в плейтесте.
+
+22 ноября 2026 года пользователь подтвердил ручную приёмку CP4. [Результаты этапа](../Technical/CombatPrototype/ImplementationPlan.md#cp4-execution-record--2026-11-22)
