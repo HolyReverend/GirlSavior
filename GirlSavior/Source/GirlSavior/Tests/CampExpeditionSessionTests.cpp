@@ -1,7 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
 
 #include "Camp/GirlSaviorCampPreparation.h"
-#include "Camp/GirlSaviorCampPrototypeDefinition.h"
+#include "Camp/GirlSaviorCampDefinition.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "Expeditions/GirlSaviorExpeditionSessionSubsystem.h"
@@ -34,7 +34,7 @@ bool FGirlSaviorExpeditionSessionTest::RunTest(const FString& Parameters)
 {
     using namespace GirlSavior::ExpeditionSessionTests;
 
-    const auto* Catalog = LoadObject<UGirlSaviorCampPrototypeDefinition>(nullptr,
+    const auto* Catalog = LoadObject<UGirlSaviorCampDefinition>(nullptr,
         TEXT("/Game/Data/DataAssets/Camp/DA_CampPrototype.DA_CampPrototype"));
     if (!TestNotNull(TEXT("Saved Camp catalog"), Catalog))
     {

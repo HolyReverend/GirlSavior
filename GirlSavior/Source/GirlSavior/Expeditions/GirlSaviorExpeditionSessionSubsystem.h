@@ -6,7 +6,7 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "GirlSaviorExpeditionSessionSubsystem.generated.h"
 
-class UGirlSaviorCampPrototypeDefinition;
+class UGirlSaviorCampDefinition;
 struct FGirlSaviorCampPreparation;
 
 enum class EGirlSaviorExpeditionClaim : uint8
@@ -27,7 +27,7 @@ public:
     virtual void Initialize(FSubsystemCollectionBase& Collection) override;
     virtual void Deinitialize() override;
 
-    bool RequestLaunch(UWorld& World, const UGirlSaviorCampPrototypeDefinition& Catalog,
+    bool RequestLaunch(UWorld& World, const UGirlSaviorCampDefinition& Catalog,
         const FGirlSaviorCampPreparation& Draft, FText& OutError);
     EGirlSaviorExpeditionClaim ClaimLaunch(UWorld& World, const FString& Options,
         FGirlSaviorExpeditionLaunch& OutLaunch, FText& OutError);

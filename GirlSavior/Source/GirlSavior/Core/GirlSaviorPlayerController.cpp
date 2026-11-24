@@ -104,14 +104,25 @@ void AGirlSaviorPlayerController::ClearMovementIntent()
 	}
 }
 
-bool AGirlSaviorPlayerController::CanUseGameplayInput() const
+// A physical mouse press can reach the viewport before the window gains focus.
+FViewport* AGirlSaviorPlayerController::GetGameplayViewport() const
 {
 	const APawn* ControlledPawn = GetPawn();
+	if (!bGameplayInputAvailable || !IsLocalController() || !ControlledPawn || !ControlledPawn->IsLocallyControlled()
+		|| !RegisteredMappingContext || !RegisteredInputSubsystem.IsValid() || IsPaused()
+		|| GetViewTarget() != ControlledPawn)
+	{
+		return nullptr;
+	}
+
 	const ULocalPlayer* LocalPlayer = GetLocalPlayer();
-	const FViewport* Viewport = LocalPlayer && LocalPlayer->ViewportClient ? LocalPlayer->ViewportClient->Viewport : nullptr;
-	return bGameplayInputAvailable && IsLocalController() && ControlledPawn && ControlledPawn->IsLocallyControlled()
-		&& RegisteredMappingContext && RegisteredInputSubsystem.IsValid() && !IsPaused()
-		&& GetViewTarget() == ControlledPawn && Viewport && Viewport->HasFocus() && Viewport->IsForegroundWindow();
+	return LocalPlayer && LocalPlayer->ViewportClient ? LocalPlayer->ViewportClient->Viewport : nullptr;
+}
+
+bool AGirlSaviorPlayerController::CanUseGameplayInput() const
+{
+	const FViewport* Viewport = GetGameplayViewport();
+	return Viewport && Viewport->HasFocus() && Viewport->IsForegroundWindow();
 }
 
 void AGirlSaviorPlayerController::ClearAimCursorSample()
@@ -127,41 +138,40 @@ void AGirlSaviorPlayerController::SetGameplayInputAvailable(bool bAvailable)
 	bGameplayInputAvailable = bAvailable;
 	if (!bAvailable)
 	{
-		ClearMovementIntent();
-		ClearAimCursorSample();
-		CancelFireSeries();
-		CancelDashInput();
+		ClearMovementAndAim();
+		CancelCombatInput();
 	}
 }
 
 void AGirlSaviorPlayerController::FlushPressedKeys()
 {
 	Super::FlushPressedKeys();
-	CancelFireSeries();
-	CancelDashInput();
-	ClearMovementIntent();
-	ClearAimCursorSample();
+	CancelCombatInput();
+	ClearMovementAndAim();
 }
 
 void AGirlSaviorPlayerController::OnUnPossess()
 {
-	CancelFireSeries();
-	CancelDashInput();
+	CancelCombatInput();
 	SafeAreas.Empty();
-	ClearAimCursorSample();
-	ClearMovementIntent();
+	ClearMovementAndAim();
 	RemoveGameplayInput();
 	Super::OnUnPossess();
 }
 
 void AGirlSaviorPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	CancelFireSeries();
-	CancelDashInput();
-	ClearAimCursorSample();
-	ClearMovementIntent();
+	CancelCombatInput();
+	ClearMovementAndAim();
 	RemoveGameplayInput();
 	Super::EndPlay(EndPlayReason);
+}
+
+// Discard transient input while keeping the hero's last facing direction.
+void AGirlSaviorPlayerController::ClearMovementAndAim()
+{
+	ClearMovementIntent();
+	ClearAimCursorSample();
 }
 
 void AGirlSaviorPlayerController::PostProcessInput(float DeltaTime, bool bGamePaused)
@@ -171,13 +181,12 @@ void AGirlSaviorPlayerController::PostProcessInput(float DeltaTime, bool bGamePa
 	bDashRequested = false;
 	ClearMovementIntent();
 
-	AGirlSaviorCharacter* PrototypeCharacter = Cast<AGirlSaviorCharacter>(GetPawn());
+	AGirlSaviorCharacter* Hero = Cast<AGirlSaviorCharacter>(GetPawn());
 	const UEnhancedPlayerInput* EnhancedInput = Cast<UEnhancedPlayerInput>(PlayerInput);
 	const AGirlSaviorPlayerCameraManager* Camera =
 		Cast<AGirlSaviorPlayerCameraManager>(PlayerCameraManager);
 	const bool bCanMove = !bGamePaused && CanUseGameplayInput() && !IsMoveInputIgnored();
-	if (!bCanMove || !PrototypeCharacter
-		|| !EnhancedInput || !MoveAction || !Camera)
+	if (!bCanMove || !Hero || !EnhancedInput || !MoveAction || !Camera)
 	{
 		ClearAimCursorSample();
 		if (!bCanMove)
@@ -197,10 +206,10 @@ void AGirlSaviorPlayerController::PostProcessInput(float DeltaTime, bool bGamePa
 	const FVector WorldIntent = Camera->ToWorldMoveIntent(ScreenMoveIntent);
 	if (!WorldIntent.IsNearlyZero())
 	{
-		PrototypeCharacter->AddMovementInput(WorldIntent.GetSafeNormal(), WorldIntent.Size());
+		Hero->AddMovementInput(WorldIntent.GetSafeNormal(), WorldIntent.Size());
 		if (bTryDash && IsDashAllowed())
 		{
-			CastChecked<UGirlSaviorCharacterMovementComponent>(PrototypeCharacter->GetCharacterMovement())
+			CastChecked<UGirlSaviorCharacterMovementComponent>(Hero->GetCharacterMovement())
 				->TryStartDash(WorldIntent);
 		}
 	}
@@ -209,16 +218,20 @@ void AGirlSaviorPlayerController::PostProcessInput(float DeltaTime, bool bGamePa
 // The down-edge sample uses the same constrained rectangle as aiming, before focus acquisition completes.
 bool AGirlSaviorPlayerController::CanAcceptFirePress(const FInputKeyEventArgs& Params) const
 {
-	const APawn* Hero = GetPawn();
-	const ULocalPlayer* OwningPlayer = GetLocalPlayer();
-	FViewport* Viewport = OwningPlayer && OwningPlayer->ViewportClient ? OwningPlayer->ViewportClient->Viewport : nullptr;
-	if (!bGameplayInputAvailable || !IsLocalController() || !Hero || !Hero->IsLocallyControlled()
-		|| !RegisteredMappingContext || !RegisteredInputSubsystem.IsValid() || IsPaused()
-		|| GetViewTarget() != Hero || !IsFireAllowed() || !Viewport || Params.Viewport != Viewport) return false;
+	FViewport* Viewport = GetGameplayViewport();
+	if (!Viewport || Params.Viewport != Viewport || !IsFireAllowed())
+	{
+		return false;
+	}
+
 	FSceneViewProjectionData Projection;
-	float X = 0.f, Y = 0.f;
-	if (!GetMousePosition(X, Y) || !OwningPlayer->GetProjectionData(Viewport, Projection)
-		|| !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
+	float X = 0.f;
+	float Y = 0.f;
+	if (!GetMousePosition(X, Y) || !GetLocalPlayer()->GetProjectionData(Viewport, Projection)
+		|| !FMath::IsFinite(X) || !FMath::IsFinite(Y))
+	{
+		return false;
+	}
 	const FIntRect Rect = Projection.GetConstrainedViewRect();
 	return Rect.Width() > 0 && Rect.Height() > 0 && X >= Rect.Min.X && Y >= Rect.Min.Y
 		&& X < Rect.Max.X && Y < Rect.Max.Y;
@@ -253,6 +266,13 @@ void AGirlSaviorPlayerController::CancelFireSeries()
 	if (auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn())) Hero->GetFireComponent()->CancelFireSeries();
 }
 
+// Interrupt both combat inputs while leaving their cooldowns intact.
+void AGirlSaviorPlayerController::CancelCombatInput()
+{
+	CancelFireSeries();
+	CancelDashInput();
+}
+
 // Shared cleanup for focus, pause and possession changes.
 void AGirlSaviorPlayerController::CancelDashInput()
 {
@@ -268,8 +288,7 @@ bool AGirlSaviorPlayerController::SetPause(bool bPause, FCanUnpause CanUnpauseDe
 	const bool bSucceeded = Super::SetPause(bPause, CanUnpauseDelegate);
 	if (bSucceeded && bPause)
 	{
-		CancelFireSeries();
-		CancelDashInput();
+		CancelCombatInput();
 	}
 	return bSucceeded;
 }
@@ -298,8 +317,7 @@ void AGirlSaviorPlayerController::SetSafeAreaActive(AActor* Area, bool bActive)
 	if (bActive)
 	{
 		SafeAreas.Add(Area);
-		CancelFireSeries();
-		CancelDashInput();
+		CancelCombatInput();
 	}
 	else SafeAreas.Remove(Area);
 }

@@ -3,7 +3,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Camp/GirlSaviorCampInteractable.h"
-#include "Camp/GirlSaviorCampPrototypeDefinition.h"
+#include "Camp/GirlSaviorCampDefinition.h"
 #include "Camp/GirlSaviorCampWidgets.h"
 #include "Camp/GirlSaviorExpeditionTable.h"
 #include "Components/CapsuleComponent.h"
@@ -226,7 +226,7 @@ void AGirlSaviorCampPlayerController::OnInteractPressed()
 }
 
 // Opening the table creates one draft for the visit, initially on the mission page.
-void AGirlSaviorCampPlayerController::OpenExpeditionTable(const UGirlSaviorCampPrototypeDefinition& Catalog)
+void AGirlSaviorCampPlayerController::OpenExpeditionTable(const UGirlSaviorCampDefinition& Catalog)
 {
     if (Page != EGirlSaviorCampPage::Walking || !CanUseGameplayInput() || !PreparationWidgetClass)
     {
@@ -252,7 +252,7 @@ void AGirlSaviorCampPlayerController::OpenHeroineInfo(const UGirlSaviorHeroineDe
 
     const UGirlSaviorSupportAbilityDefinition* OfferedAbility = nullptr;
     const AGirlSaviorExpeditionTable* Table = ExpeditionTable.Get();
-    const UGirlSaviorCampPrototypeDefinition* Catalog = Table ? Table->GetCatalog() : nullptr;
+    const UGirlSaviorCampDefinition* Catalog = Table ? Table->GetCatalog() : nullptr;
     if (Catalog)
     {
         for (const UGirlSaviorSupportAbilityDefinition* Ability : Heroine.Abilities)
@@ -350,7 +350,8 @@ void AGirlSaviorCampPlayerController::RefreshPreparation(const FText& Status)
     FGirlSaviorSupportOffer Second;
     FText Error;
     const bool bOnPreparation = Page == EGirlSaviorCampPage::Preparation;
-    const bool bCanLaunch = bOnPreparation && Draft.ResolveForLaunch(*Catalog, First, Second, Error) && !IsLaunchInProgress();
+    const bool bLaunchInProgress = IsLaunchInProgress();
+    const bool bCanLaunch = bOnPreparation && !bLaunchInProgress && Draft.ResolveForLaunch(*Catalog, First, Second, Error);
     FText VisibleStatus = Status;
     if (!bOnPreparation && !Catalog->ValidateCatalog(Error))
     {
@@ -358,7 +359,7 @@ void AGirlSaviorCampPlayerController::RefreshPreparation(const FText& Status)
         VisibleStatus = LOCTEXT("InvalidCatalog", "Данные вылазки недоступны.");
     }
     else if (bOnPreparation && Draft.GetAbilityIds().Num() == FGirlSaviorCampPreparation::SlotCount
-        && !bCanLaunch && VisibleStatus.IsEmpty() && !IsLaunchInProgress())
+        && !bCanLaunch && VisibleStatus.IsEmpty() && !bLaunchInProgress)
     {
         UE_LOG(LogGirlSaviorCamp, Warning, TEXT("%s"), *Error.ToString());
         VisibleStatus = LOCTEXT("InvalidPreparation", "Проверьте карты вылазки и выбранные умения.");

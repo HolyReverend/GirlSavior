@@ -2,18 +2,18 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "GirlSaviorPrototypeForegroundOccluder.generated.h"
+#include "GirlSaviorForegroundOccluder.generated.h"
 
 class UBoxComponent;
 class UStaticMeshComponent;
 
 /** Presentation fades independently of the persistent gameplay obstacle. */
 UCLASS(Blueprintable)
-class GIRLSAVIOR_API AGirlSaviorPrototypeForegroundOccluder : public AActor
+class GIRLSAVIOR_API AGirlSaviorForegroundOccluder : public AActor
 {
 	GENERATED_BODY()
 public:
-	AGirlSaviorPrototypeForegroundOccluder();
+	AGirlSaviorForegroundOccluder();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Prototype|Camera")
 	TObjectPtr<UBoxComponent> GameplayBlocker;

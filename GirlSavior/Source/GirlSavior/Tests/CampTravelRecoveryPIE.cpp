@@ -2,7 +2,7 @@
 
 #include "Camp/GirlSaviorCampPlayerController.h"
 #include "Camp/GirlSaviorCampPreparation.h"
-#include "Camp/GirlSaviorCampPrototypeDefinition.h"
+#include "Camp/GirlSaviorCampDefinition.h"
 #include "Characters/GirlSaviorCharacter.h"
 #include "Combat/GirlSaviorDamageReceiverComponent.h"
 #include "Combat/GirlSaviorFireComponent.h"
@@ -37,7 +37,7 @@ class FProbe
 public:
     FProbe(UWorld& World, ECase InCase) : Instance(World.GetGameInstance()), Case(InCase)
     {
-        Catalog = LoadObject<UGirlSaviorCampPrototypeDefinition>(nullptr,
+        Catalog = LoadObject<UGirlSaviorCampDefinition>(nullptr,
             TEXT("/Game/Data/DataAssets/Camp/DA_CampPrototype.DA_CampPrototype"));
         if (!Catalog.IsValid() || !Instance.IsValid() || !IsMap(World, Catalog->CampMap))
         {
@@ -398,7 +398,7 @@ private:
     }
 
     TWeakObjectPtr<UGameInstance> Instance;
-    TWeakObjectPtr<UGirlSaviorCampPrototypeDefinition> Catalog;
+    TWeakObjectPtr<UGirlSaviorCampDefinition> Catalog;
     TWeakObjectPtr<UWorld> Origin;
     FDelegateHandle Pre;
     FDelegateHandle Post;

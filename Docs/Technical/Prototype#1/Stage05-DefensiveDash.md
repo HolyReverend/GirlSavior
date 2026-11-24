@@ -13,7 +13,7 @@ The movement, input and protection query in Steps 1–4 passed [CP0 verification
 ## Step 1 — Add the dash mode and tuning
 
 - [x] Extend `Source/GirlSavior/Characters/GirlSaviorCharacterMovementComponent.h` and `.cpp`. Add a dash submode of `MOVE_Custom` to the existing synchronous Character Movement Component (CMC). It owns dash velocity, remaining movement time, the protection deadline, and the next ready time.
-- [x] Add a `UGirlSaviorDashSettings` Data Asset class and create `Content/Data/DataAssets/Combat/DA_PrototypeDash` with the values below. Assign the asset reference on the movement component of `BP_PrototypeCharacter`, so the combat prototype child inherits it. Validate the asset at start. Compute horizontal speed from distance and duration. Capture the tuning for the accepted dash so changes take effect on the next use. [Combat balance settings](../CombatPrototype/ImplementationPlan.md#balance-settings-in-data-assets)
+- [x] Add a `UGirlSaviorDashSettings` Data Asset class and create `Content/Data/DataAssets/Combat/DA_PrototypeDash` with the values below. Assign the asset reference on the movement component of `BP_Character`, so the combat prototype child inherits it. Validate the asset at start. Compute horizontal speed from distance and duration. Capture the tuning for the accepted dash so changes take effect on the next use. [Combat balance settings](../CombatPrototype/ImplementationPlan.md#balance-settings-in-data-assets)
 
 | Setting | Prototype value |
 | --- | --- |

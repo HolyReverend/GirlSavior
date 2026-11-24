@@ -1,6 +1,6 @@
 # Camp to expedition handoff
 
-The current route is `/Game/Maps/TestMaps/CombatPrototypeRoute`. Its `BP_CombatPrototypeGameMode`, `BP_CombatPrototypeCharacter`, `DA_CombatPistol`, safe pocket, waves, Torch and exit remain the basis of the expedition. The Camp request adds a confirmed loadout to this entry point. [Plan](ImplementationPlan.md) · [Support skills](SupportSkills.md) · [Current combat wiring](../Architecture.md)
+The current route is `/Game/Maps/TestMaps/CombatPrototypeRoute`. Its `BP_CombatGameMode`, `BP_CombatCharacter`, `DA_CombatPistol`, safe pocket, waves, Torch and exit remain the basis of the expedition. The Camp request adds a confirmed loadout to this entry point. [Plan](ImplementationPlan.md) · [Support skills](SupportSkills.md) · [Current combat wiring](../Architecture.md)
 
 ```mermaid
 flowchart LR

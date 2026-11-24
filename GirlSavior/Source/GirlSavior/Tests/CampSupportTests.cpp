@@ -1,6 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
 
-#include "Camp/GirlSaviorCampPrototypeDefinition.h"
+#include "Camp/GirlSaviorCampDefinition.h"
 #include "Engine/Texture2D.h"
 #include "Engine/World.h"
 #include "Misc/AutomationTest.h"
@@ -23,9 +23,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGirlSaviorCampRejectionTest, "GirlSavior.Camp.
 namespace GirlSavior::CampTests
 {
 // Load the packaged fixture through the same references the table will use.
-UGirlSaviorCampPrototypeDefinition* LoadCampFixture()
+UGirlSaviorCampDefinition* LoadCampFixture()
 {
-    return LoadObject<UGirlSaviorCampPrototypeDefinition>(nullptr,
+    return LoadObject<UGirlSaviorCampDefinition>(nullptr,
         TEXT("/Game/Data/DataAssets/Camp/DA_CampPrototype.DA_CampPrototype"));
 }
 }
@@ -34,7 +34,7 @@ UGirlSaviorCampPrototypeDefinition* LoadCampFixture()
 bool FGirlSaviorCampSchemaTest::RunTest(const FString& Parameters)
 {
     for (const TCHAR* ClassName : {
-        TEXT("GirlSaviorCampPrototypeDefinition"),
+        TEXT("GirlSaviorCampDefinition"),
         TEXT("GirlSaviorHeroineDefinition"),
         TEXT("GirlSaviorSupportAbilityDefinition"),
         TEXT("GirlSaviorWeaponHitSlowEffectDefinition"),
@@ -51,7 +51,7 @@ bool FGirlSaviorCampSchemaTest::RunTest(const FString& Parameters)
 bool FGirlSaviorCampFixtureTest::RunTest(const FString& Parameters)
 {
     using GirlSavior::CampTests::LoadCampFixture;
-    const UGirlSaviorCampPrototypeDefinition* Catalog = LoadCampFixture();
+    const UGirlSaviorCampDefinition* Catalog = LoadCampFixture();
     if (!TestNotNull(TEXT("Saved catalog loads from its package"), Catalog))
     {
         return false;

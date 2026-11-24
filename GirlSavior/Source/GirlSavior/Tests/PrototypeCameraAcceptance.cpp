@@ -2,7 +2,7 @@
 #include "Camera/GirlSaviorPlayerCameraManager.h"
 #include "Camera/GirlSaviorCameraRoomBounds.h"
 #include "Camera/GirlSaviorPrototypeWarningFixture.h"
-#include "Camera/GirlSaviorPrototypeForegroundOccluder.h"
+#include "Camera/GirlSaviorForegroundOccluder.h"
 #include "Characters/GirlSaviorCharacter.h"
 #include "Camera/CameraActor.h"
 #include "Components/BoxComponent.h"
@@ -138,9 +138,9 @@ static void Run(const TArray<FString>& Args, UWorld* World)
 	Check(Returned.Equals(Anchor(),.001), TEXT("camera actor return resolves destination without stale history"));
 	Cinematic->Destroy();
 
-	AGirlSaviorPrototypeForegroundOccluder* Occluder = nullptr;
+	AGirlSaviorForegroundOccluder* Occluder = nullptr;
 	AGirlSaviorPrototypeWarningFixture* Warning = nullptr;
-	for (TActorIterator<AGirlSaviorPrototypeForegroundOccluder> It(World); It; ++It) { Occluder = *It; break; }
+	for (TActorIterator<AGirlSaviorForegroundOccluder> It(World); It; ++It) { Occluder = *It; break; }
 	for (TActorIterator<AGirlSaviorPrototypeWarningFixture> It(World); It; ++It) { Warning = *It; break; }
 	Check(Occluder && Warning, TEXT("occlusion and warning fixtures present"));
 	if (Occluder && Warning)

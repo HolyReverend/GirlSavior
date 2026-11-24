@@ -1,4 +1,4 @@
-#include "Camp/GirlSaviorCampPrototypeDefinition.h"
+#include "Camp/GirlSaviorCampDefinition.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/World.h"
@@ -40,7 +40,7 @@ bool MapPackageExists(const FSoftObjectPath& Path)
 }
 
 // Resolve the complete authored roster before looking at the subset advertised by Camp.
-bool UGirlSaviorCampPrototypeDefinition::ValidateCatalog(FText& OutError) const
+bool UGirlSaviorCampDefinition::ValidateCatalog(FText& OutError) const
 {
     if (MissionId.IsNone())
     {
@@ -127,7 +127,7 @@ bool UGirlSaviorCampPrototypeDefinition::ValidateCatalog(FText& OutError) const
 }
 
 // Launch requires a complete catalog and distinct map references. Travel preflights the destination.
-bool UGirlSaviorCampPrototypeDefinition::Validate(FText& OutError) const
+bool UGirlSaviorCampDefinition::Validate(FText& OutError) const
 {
     if (!ValidateCatalog(OutError))
     {
@@ -163,7 +163,7 @@ bool UGirlSaviorCampPrototypeDefinition::Validate(FText& OutError) const
 }
 
 // Look up the card by stable ID in the authored owner list.
-FGirlSaviorSupportOffer UGirlSaviorCampPrototypeDefinition::FindOffer(FName AbilityId) const
+FGirlSaviorSupportOffer UGirlSaviorCampDefinition::FindOffer(FName AbilityId) const
 {
     if (AbilityId.IsNone() || !AvailableAbilityIds.Contains(AbilityId))
     {
@@ -188,7 +188,7 @@ FGirlSaviorSupportOffer UGirlSaviorCampPrototypeDefinition::FindOffer(FName Abil
 }
 
 // Reject invalid selections before writing either result, preserving the caller's draft on failure.
-bool UGirlSaviorCampPrototypeDefinition::ResolveLaunchPair(FName FirstId, FName SecondId,
+bool UGirlSaviorCampDefinition::ResolveLaunchPair(FName FirstId, FName SecondId,
     FGirlSaviorSupportOffer& OutFirst, FGirlSaviorSupportOffer& OutSecond, FText& OutError) const
 {
     if (!Validate(OutError))
@@ -211,7 +211,7 @@ bool UGirlSaviorCampPrototypeDefinition::ResolveLaunchPair(FName FirstId, FName 
 
 #if WITH_EDITOR
 // The standard editor validation action becomes fully valid once Camp 2 assigns both maps.
-EDataValidationResult UGirlSaviorCampPrototypeDefinition::IsDataValid(FDataValidationContext& Context) const
+EDataValidationResult UGirlSaviorCampDefinition::IsDataValid(FDataValidationContext& Context) const
 {
     FText Error;
     if (!Validate(Error))

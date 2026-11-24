@@ -48,7 +48,7 @@ $project = 'E:/Projects/VibeCoding/GirlSaviorProject/GirlSavior/GirlSavior.uproj
 
 - [x] In Unreal Editor, open `Content/Maps/Demo.umap` (`/Game/Maps/Demo`). Inspect its existing floor, lighting, and spawn point. Reuse suitable actors and save the prototype work in this same level.
 - [x] Ensure the level has a flat floor with simple blocking collision and a top surface at **Z = 0**. Use a footprint of about **2400 × 2400 cm** for the later movement lane. If the floor is missing, use an Engine Basic Shapes cube. Keep basic lighting and one `PlayerStart` above the floor with clearance for the stock pawn and the Stage 1 capsule. Add any missing setup actors.
-- [x] Save the level. Leave its `GameMode Override` unset for the baseline smoke check. Stage 1 will assign `BP_PrototypeGameMode` on this map and add the collision wall and lane markers. [Epic GameMode setup](https://dev.epicgames.com/documentation/unreal-engine/setting-up-a-game-mode-in-unreal-engine)
+- [x] Save the level. Leave its `GameMode Override` unset for the baseline smoke check. Stage 1 will assign `BP_GameMode` on this map and add the collision wall and lane markers. [Epic GameMode setup](https://dev.epicgames.com/documentation/unreal-engine/setting-up-a-game-mode-in-unreal-engine)
 
 ## Step 3 — Set the startup maps
 

@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "GirlSaviorCampPrototypeDefinition.generated.h"
+#include "GirlSaviorCampDefinition.generated.h"
 
 class UGirlSaviorHeroineDefinition;
 class UGirlSaviorSupportAbilityDefinition;
@@ -16,7 +16,7 @@ struct FGirlSaviorSupportOffer
 };
 
 UCLASS(BlueprintType)
-class GIRLSAVIOR_API UGirlSaviorCampPrototypeDefinition : public UDataAsset
+class GIRLSAVIOR_API UGirlSaviorCampDefinition : public UDataAsset
 {
     GENERATED_BODY()
 

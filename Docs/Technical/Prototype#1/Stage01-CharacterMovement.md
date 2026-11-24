@@ -19,11 +19,11 @@ Completed-stage checklist. Use [current architecture](../Architecture.md) for sh
 - [x] Add the five C++ classes below. Paths are relative to `GirlSavior/Source/GirlSavior/`. Give each class a matching header and source file. Keep engine includes in the source file where forward declarations suffice.
 - [x] In the character constructor, use `FObjectInitializer::SetDefaultSubobjectClass<UGirlSaviorCharacterMovementComponent>(ACharacter::CharacterMovementComponentName)` in the base initializer. This installs the custom CMC as the character's built-in movement component and keeps the capsule as the updated component. [Epic subobject class API](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/CoreUObject/FObjectInitializer/SetDefaultSubobjectClass)
 - [x] Set `bUseControllerRotationYaw`, `bUseControllerRotationPitch`, `bUseControllerRotationRoll`, `bOrientRotationToMovement`, and `bUseControllerDesiredRotation` to false. Use the capsule center as the stable body point for framing and later aim.
-- [x] Set the native pawn and controller defaults in `AGirlSaviorPrototypeGameMode`. Set `PlayerCameraManagerClass` to `AGirlSaviorPlayerCameraManager` in the controller constructor. Retain the existing `Build.cs` dependencies, which already include `EnhancedInput`.
+- [x] Set the native pawn and controller defaults in `AGirlSaviorGameMode`. Set `PlayerCameraManagerClass` to `AGirlSaviorPlayerCameraManager` in the controller constructor. Retain the existing `Build.cs` dependencies, which already include `EnhancedInput`.
 
 | Files | Ownership |
 | --- | --- |
-| `Core/GirlSaviorPrototypeGameMode.h` and `.cpp` | `AGirlSaviorPrototypeGameMode : AGameModeBase`. Select the prototype pawn and controller. |
+| `Core/GirlSaviorGameMode.h` and `.cpp` | `AGirlSaviorGameMode : AGameModeBase`. Select the prototype pawn and controller. |
 | `Core/GirlSaviorPlayerController.h` and `.cpp` | `AGirlSaviorPlayerController : APlayerController`. Own `IA_Move` and `IMC_Gameplay` references, input lifecycle, and the current screen-space movement intent. |
 | `Camera/GirlSaviorPlayerCameraManager.h` and `.cpp` | `AGirlSaviorPlayerCameraManager : APlayerCameraManager`. Own the fixed perspective view and conversion from screen axes to ground axes. |
 | `Characters/GirlSaviorCharacter.h` and `.cpp`, `Characters/GirlSaviorCharacterMovementComponent.h` and `.cpp` | Compose the pawn and capsule. Own walking tuning and the grounded velocity update in `UGirlSaviorCharacterMovementComponent`. |
@@ -86,8 +86,8 @@ Stock walking can recompute `Velocity` from actual capsule displacement after a 
 & 'C:/Program Files/Epic Games/UE_5.8/Engine/Build/BatchFiles/Build.bat' GirlSaviorEditor Win64 Development '-Project=E:/Projects/VibeCoding/GirlSaviorProject/GirlSavior/GirlSavior.uproject' -WaitMutex
 ```
 
-- [x] Create `BP_PrototypeCharacter` under `Content/Blueprints/Characters/` and `BP_PrototypePlayerController` plus `BP_PrototypeGameMode` under `Content/Blueprints/Core/`. Parent them to the native classes above. Assign the input assets on the controller and the Blueprint pawn and controller classes on the GameMode. Give the character a visible placeholder mesh with collision disabled so the capsule owns contact.
-- [x] Open the Stage 0 map `Content/Maps/Demo.umap` and set its **World Settings → GameMode Override** to `BP_PrototypeGameMode`. Verify capsule clearance at the existing `PlayerStart`. Add a straight wall across the camera-forward direction on the existing **2400 × 2400 cm** floor. Give the wall simple blocking collision and a height above the configured `MaxStepHeight`. Leave space along the wall for sliding. Orient floor markers to the camera basis so left, right, and forward are clear. Launch PIE from `PlayerStart` in this map.
+- [x] Create `BP_Character` under `Content/Blueprints/Characters/` and `BP_PlayerController` plus `BP_GameMode` under `Content/Blueprints/Core/`. Parent them to the native classes above. Assign the input assets on the controller and the Blueprint pawn and controller classes on the GameMode. Give the character a visible placeholder mesh with collision disabled so the capsule owns contact.
+- [x] Open the Stage 0 map `Content/Maps/Demo.umap` and set its **World Settings → GameMode Override** to `BP_GameMode`. Verify capsule clearance at the existing `PlayerStart`. Add a straight wall across the camera-forward direction on the existing **2400 × 2400 cm** floor. Give the wall simple blocking collision and a height above the configured `MaxStepHeight`. Leave space along the wall for sliding. Orient floor markers to the camera basis so left, right, and forward are clear. Launch PIE from `PlayerStart` in this map.
 
 ## Step 6 — Run one focused movement acceptance scenario in PIE
 

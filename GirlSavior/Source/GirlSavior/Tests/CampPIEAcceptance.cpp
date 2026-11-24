@@ -321,8 +321,8 @@ private:
             SpawnPosition = Hero->GetActorLocation();
             Check(World->GetMapName().Contains(TEXT("CampPrototype"))
                 && Controller->GetClass()->GetName().Contains(TEXT("BP_CampPlayerController"))
-                && Hero->GetClass()->GetName().Contains(TEXT("BP_PrototypeCharacter"))
-                && Camera->GetClass()->GetName().Contains(TEXT("BP_PrototypeCameraManager")),
+                && Hero->GetClass()->GetName().Contains(TEXT("BP_Character"))
+                && Camera->GetClass()->GetName().Contains(TEXT("BP_CameraManager")),
                 TEXT("Camp uses its controller and the shared pawn and camera"));
             Check(FMath::IsNearlyEqual(FVector::Dist2D(SpawnPosition,
                 FindTarget(TEXT("ExpeditionTable"))->GetInteractionLocation()), 300.0, 30.0),

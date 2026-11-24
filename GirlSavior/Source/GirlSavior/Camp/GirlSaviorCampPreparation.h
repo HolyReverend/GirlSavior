@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 
-class UGirlSaviorCampPrototypeDefinition;
+class UGirlSaviorCampDefinition;
 struct FGirlSaviorSupportOffer;
 
 enum class EGirlSaviorCampSelectionChange : uint8
@@ -18,9 +18,9 @@ struct GIRLSAVIOR_API FGirlSaviorCampPreparation
 {
     static constexpr int32 SlotCount = 2;
 
-    void Begin(const UGirlSaviorCampPrototypeDefinition& Catalog, TConstArrayView<FName> ConfirmedIds = {});
-    EGirlSaviorCampSelectionChange ToggleAbility(const UGirlSaviorCampPrototypeDefinition& Catalog, FName AbilityId);
-    bool ResolveForLaunch(const UGirlSaviorCampPrototypeDefinition& Catalog, FGirlSaviorSupportOffer& OutFirst,
+    void Begin(const UGirlSaviorCampDefinition& Catalog, TConstArrayView<FName> ConfirmedIds = {});
+    EGirlSaviorCampSelectionChange ToggleAbility(const UGirlSaviorCampDefinition& Catalog, FName AbilityId);
+    bool ResolveForLaunch(const UGirlSaviorCampDefinition& Catalog, FGirlSaviorSupportOffer& OutFirst,
         FGirlSaviorSupportOffer& OutSecond, FText& OutError) const;
 
     FName GetMissionId() const { return MissionId; }

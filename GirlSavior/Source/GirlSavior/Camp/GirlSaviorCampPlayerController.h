@@ -9,7 +9,7 @@ class AGirlSaviorExpeditionTable;
 class UGirlSaviorCampHeroineInfoWidget;
 class UGirlSaviorCampPreparationWidget;
 class UGirlSaviorCampPromptWidget;
-class UGirlSaviorCampPrototypeDefinition;
+class UGirlSaviorCampDefinition;
 class UGirlSaviorHeroineDefinition;
 class UGirlSaviorExpeditionSessionSubsystem;
 class UUserWidget;
@@ -28,7 +28,7 @@ class GIRLSAVIOR_API AGirlSaviorCampPlayerController : public AGirlSaviorPlayerC
     GENERATED_BODY()
 
 public:
-    void OpenExpeditionTable(const UGirlSaviorCampPrototypeDefinition& Catalog);
+    void OpenExpeditionTable(const UGirlSaviorCampDefinition& Catalog);
     void OpenHeroineInfo(const UGirlSaviorHeroineDefinition& Heroine);
     void OpenPreparationPage();
     void ToggleAbility(FName AbilityId);
@@ -81,7 +81,7 @@ private:
 
     TWeakObjectPtr<AGirlSaviorCampInteractable> DisplayedTarget;
     TWeakObjectPtr<AGirlSaviorExpeditionTable> ExpeditionTable;
-    TWeakObjectPtr<const UGirlSaviorCampPrototypeDefinition> ActiveCatalog;
+    TWeakObjectPtr<const UGirlSaviorCampDefinition> ActiveCatalog;
     FTimerHandle InteractionPoll;
     EGirlSaviorCampPage Page = EGirlSaviorCampPage::Walking;
     FGirlSaviorCampPreparation Draft;

@@ -50,7 +50,7 @@ warn.trigger.set_box_extent(v(100,160,100),False)
 warn.set_editor_property('warning_seconds',.8)
 cam_a.set_editor_property('warning_actors',[warn])
 cam_b.set_editor_property('warning_actors',[warn])
-occ = spawn('Stage2_Foreground',unreal.EditorAssetLibrary.load_blueprint_class('/Game/Blueprints/Core/BP_PrototypeForegroundOccluder'),(1410,-140,150),45)
+occ = spawn('Stage2_Foreground',unreal.EditorAssetLibrary.load_blueprint_class('/Game/Blueprints/Core/BP_ForegroundOccluder'),(1410,-140,150),45)
 # A distant cosmetic source stays outside the planned approach's frame.
 cube('Stage2_OffscreenSource',(3200,-1200,100),(1,1,2),'/Game/Art/Materials/M_PrototypeCameraImpact',False)
 for a in [cam_a,cam_b]:

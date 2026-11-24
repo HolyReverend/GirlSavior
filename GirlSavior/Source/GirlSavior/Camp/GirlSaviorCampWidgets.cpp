@@ -3,7 +3,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "Brushes/SlateColorBrush.h"
 #include "Camp/GirlSaviorCampPlayerController.h"
-#include "Camp/GirlSaviorCampPrototypeDefinition.h"
+#include "Camp/GirlSaviorCampDefinition.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/ButtonSlot.h"
@@ -338,7 +338,7 @@ TSharedRef<SWidget> UGirlSaviorCampPreparationWidget::RebuildWidget()
 }
 
 // Render ordered offers and selected slots from the controller's validated draft view.
-void UGirlSaviorCampPreparationWidget::Refresh(const UGirlSaviorCampPrototypeDefinition& Catalog,
+void UGirlSaviorCampPreparationWidget::Refresh(const UGirlSaviorCampDefinition& Catalog,
     TConstArrayView<FName> SelectedIds, bool bShowPreparation, bool bValidSelection, const FText& Status)
 {
     using namespace GirlSavior::CampUI;

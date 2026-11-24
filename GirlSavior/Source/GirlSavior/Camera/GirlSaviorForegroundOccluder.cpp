@@ -1,4 +1,4 @@
-#include "Camera/GirlSaviorPrototypeForegroundOccluder.h"
+#include "Camera/GirlSaviorForegroundOccluder.h"
 
 #include "Camera/GirlSaviorCameraChannels.h"
 #include "Components/BoxComponent.h"
@@ -6,7 +6,7 @@
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
 
-AGirlSaviorPrototypeForegroundOccluder::AGirlSaviorPrototypeForegroundOccluder()
+AGirlSaviorForegroundOccluder::AGirlSaviorForegroundOccluder()
 {
 	PrimaryActorTick.bCanEverTick = false;
 	GameplayBlocker = CreateDefaultSubobject<UBoxComponent>(TEXT("GameplayBlocker"));

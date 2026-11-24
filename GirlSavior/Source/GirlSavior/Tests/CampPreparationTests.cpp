@@ -1,7 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
 
 #include "Camp/GirlSaviorCampPreparation.h"
-#include "Camp/GirlSaviorCampPrototypeDefinition.h"
+#include "Camp/GirlSaviorCampDefinition.h"
 #include "Misc/AutomationTest.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGirlSaviorCampDraftTest, "GirlSavior.Camp.Preparation",
@@ -10,7 +10,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGirlSaviorCampDraftTest, "GirlSavior.Camp.Prep
 // Exercise the same native draft functions used by the expedition table.
 bool FGirlSaviorCampDraftTest::RunTest(const FString& Parameters)
 {
-    const auto* Catalog = LoadObject<UGirlSaviorCampPrototypeDefinition>(nullptr,
+    const auto* Catalog = LoadObject<UGirlSaviorCampDefinition>(nullptr,
         TEXT("/Game/Data/DataAssets/Camp/DA_CampPrototype.DA_CampPrototype"));
     if (!TestNotNull(TEXT("Camp catalog loads"), Catalog))
     {

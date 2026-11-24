@@ -1,7 +1,7 @@
 #include "Expeditions/GirlSaviorExpeditionSessionSubsystem.h"
 
 #include "Camp/GirlSaviorCampPreparation.h"
-#include "Camp/GirlSaviorCampPrototypeDefinition.h"
+#include "Camp/GirlSaviorCampDefinition.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
@@ -96,7 +96,7 @@ bool UGirlSaviorExpeditionSessionSubsystem::OwnsWorld(const UWorld& World) const
 }
 
 // Confirm and retain the entire draft before queuing the one effective travel request.
-bool UGirlSaviorExpeditionSessionSubsystem::RequestLaunch(UWorld& World, const UGirlSaviorCampPrototypeDefinition& Catalog,
+bool UGirlSaviorExpeditionSessionSubsystem::RequestLaunch(UWorld& World, const UGirlSaviorCampDefinition& Catalog,
     const FGirlSaviorCampPreparation& Draft, FText& OutError)
 {
     using namespace GirlSavior::ExpeditionTravel;

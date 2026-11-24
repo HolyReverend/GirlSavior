@@ -4,9 +4,10 @@
 #include "GameFramework/PlayerController.h"
 #include "GirlSaviorPlayerController.generated.h"
 
+class FViewport;
+class UEnhancedInputLocalPlayerSubsystem;
 class UInputAction;
 class UInputMappingContext;
-class UEnhancedInputLocalPlayerSubsystem;
 
 UCLASS()
 class GIRLSAVIOR_API AGirlSaviorPlayerController : public APlayerController
@@ -59,11 +60,15 @@ protected:
 private:
 	void RegisterGameplayInput();
 	void RemoveGameplayInput();
+	FViewport* GetGameplayViewport() const;
+	bool CanAcceptFirePress(const FInputKeyEventArgs& Params) const;
+	void ClearMovementAndAim();
 	void ClearMovementIntent();
 	void ClearAimCursorSample();
+	void CancelCombatInput();
 	void CancelFireSeries();
 	void CancelDashInput();
-	bool CanAcceptFirePress(const FInputKeyEventArgs& Params) const;
+
 	bool bFireAllowed = true;
 	bool bDashRequested = false;
 	TSet<TWeakObjectPtr<AActor>> SafeAreas;

@@ -5,7 +5,7 @@
 #include "GirlSaviorCampWidgets.generated.h"
 
 class UButton;
-class UGirlSaviorCampPrototypeDefinition;
+class UGirlSaviorCampDefinition;
 class UGirlSaviorHeroineDefinition;
 class UGirlSaviorSupportAbilityDefinition;
 class UImage;
@@ -110,7 +110,7 @@ class GIRLSAVIOR_API UGirlSaviorCampPreparationWidget : public UGirlSaviorCampMo
 
 public:
     // Render the controller's current page and draft from the read-only catalog.
-    void Refresh(const UGirlSaviorCampPrototypeDefinition& Catalog, TConstArrayView<FName> SelectedIds,
+    void Refresh(const UGirlSaviorCampDefinition& Catalog, TConstArrayView<FName> SelectedIds,
         bool bShowPreparation, bool bValidSelection, const FText& Status);
     void FocusAfterLaunchFailure();
 

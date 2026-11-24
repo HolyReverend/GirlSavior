@@ -1,7 +1,7 @@
 #include "Camp/GirlSaviorExpeditionTable.h"
 
 #include "Camp/GirlSaviorCampPlayerController.h"
-#include "Camp/GirlSaviorCampPrototypeDefinition.h"
+#include "Camp/GirlSaviorCampDefinition.h"
 
 // The table is available once its mission catalog is assigned.
 bool AGirlSaviorExpeditionTable::IsInteractionEnabled() const
