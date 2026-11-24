@@ -1,6 +1,6 @@
 # Чек-лист реализации механик
 
-Состояние проекта на 21 ноября 2026 года. Статусы сверены с кодом, игровыми ассетами и записями приёмки на карте Demo.
+Состояние проекта на 23 ноября 2026 года. Статусы сверены с текущим проектом и записями приёмки на картах Demo и боевого прототипа.
 
 ## Готово
 
@@ -18,6 +18,16 @@
 - [Обратная связь при стрельбе](Mechanics/Weapons/ShotFeedback.md)
 - [Безопасные комнаты и малые костры](Mechanics/Expeditions/SafeRooms.md)
 - [Предупреждения об атаках и реакция героя](Mechanics/Encounters/EnemyAttackFeedback.md)
+- [Рывок персонажа](Mechanics/Player/CharacterCharge.md)
+- [Стартовый пистолет](Mechanics/Weapons/Pistol.md)
+- [Боевые комнаты](Mechanics/Encounters/CombatEncounters.md)
+- [Типы обычных противников](Mechanics/Encounters/EnemyTypes.md)
+- [Волны противников](Mechanics/Encounters/EnemyWaves.md)
+- [Гибель врагов и героя](Mechanics/Encounters/DeathFeedback.md)
+- [Шаблоны комнат и сборка маршрута экспедиции](Mechanics/Expeditions/ExpeditionLevelDesign.md)
+- [Рост сложности в экспедиции](Mechanics/Expeditions/ExpeditionDifficulty.md)
+- [Факел и его улучшение](Mechanics/Expeditions/Torch.md)
+- [Интерфейс вылазки](Mechanics/Interface/ExpeditionHUD.md)
 
 ## Не реализовано
 
@@ -25,26 +35,17 @@
 
 ### Герой, оружие и бой
 
-- [Рывок персонажа](Mechanics/Player/CharacterCharge.md)
 - [Выбор, вынос и открытие оружия](Mechanics/Weapons/Weapons.md)
-- [Стартовый пистолет](Mechanics/Weapons/Pistol.md)
 - [Дробовик](Mechanics/Weapons/Shotgun.md)
 - [Автоматическая винтовка](Mechanics/Weapons/AssaultRifle.md)
-- [Боевые комнаты](Mechanics/Encounters/CombatEncounters.md)
-- [Типы обычных противников](Mechanics/Encounters/EnemyTypes.md)
-- [Волны противников](Mechanics/Encounters/EnemyWaves.md)
 - [Элитные враги](Mechanics/Encounters/EliteEnemies.md)
 - [Облик и сигналы элитных врагов](Mechanics/Encounters/EliteEnemyPresentation.md)
-- [Гибель врагов и героя](Mechanics/Encounters/DeathFeedback.md)
 - [Эффекты усилений в бою](Mechanics/Encounters/UpgradeCombatFeedback.md)
 
 ### Вылазки
 
 - [Типы экспедиций, выбор маршрута и открытие регионов](Mechanics/Expeditions/Expeditions.md)
 - [Комнаты Бездны и их сборка](Mechanics/Expeditions/AbyssRoomDesign.md)
-- [Шаблоны комнат и сборка маршрута экспедиции](Mechanics/Expeditions/ExpeditionLevelDesign.md)
-- [Рост сложности в экспедиции](Mechanics/Expeditions/ExpeditionDifficulty.md)
-- [Факел и его улучшение](Mechanics/Expeditions/Torch.md)
 - [Спасение героинь](Mechanics/Expeditions/HeroineRescue.md)
 - [Возвращение из экспедиции с добычей и потери при гибели](Mechanics/Expeditions/ExpeditionReturn.md)
 
@@ -71,7 +72,6 @@
 - [Уровень, пассивки героя и ранги оружия](Mechanics/Progression/HeroProgression.md)
 - [Временные усиления в экспедиции](Mechanics/Progression/ExpeditionUpgrades.md)
 - [Стартовые карточки временных усилений](Mechanics/Progression/ExpeditionUpgradeCards.md)
-- [Интерфейс вылазки](Mechanics/Interface/ExpeditionHUD.md)
 - [Сумка вылазки и лента добычи](Mechanics/Interface/ExpeditionInventory.md)
 - [Показ опыта и повышения уровня в вылазке](Mechanics/Interface/ExpeditionExperience.md)
 - [Окно выбора усиления](Mechanics/Interface/ExpeditionUpgradeChoice.md)
