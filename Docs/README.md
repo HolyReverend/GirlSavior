@@ -13,6 +13,7 @@ Use this index when you need to find a document. Start with the file and section
 | Prototype scope, stage order, or planned responsibilities | [Prototype 1 plan](Technical/Prototype%231/ImplementationPlan.md) |
 | Playable combat route with ordinary enemies and waves | [Combat prototype plan](Technical/CombatPrototype/ImplementationPlan.md) |
 | Walkable Camp, two-of-three skill preparation and the linked combat route | [Camp prototype plan](Technical/CampPrototype/ImplementationPlan.md) |
+| Three playable weapons, slot selection at the Expedition Table and in-combat switching | [Weapon system plan](Technical/Weapons/ImplementationPlan.md) |
 
 ## Prototype 1 technical tasks
 
@@ -42,6 +43,15 @@ Use this index when you need to find a document. Start with the file and section
 | Build the walkable blockout and the preparation flow at the table | [Camp scene and preparation](Technical/CampPrototype/CampScene.md) |
 | Author heroines, skill cards and configurable mechanic definitions | [Heroine and support skill data](Technical/CampPrototype/SupportSkills.md) |
 | Transfer the confirmed skills, apply them in combat, and return to Camp | [Camp to expedition handoff](Technical/CampPrototype/ExpeditionHandoff.md) |
+
+## Weapon system technical tasks
+
+| Task | Detailed document |
+| --- | --- |
+| Define firearm classes, lifetimes and integration boundaries | [Weapon architecture](Technical/Weapons/WeaponArchitecture.md) |
+| Author shared weapon data, fire three distinct patterns, and switch slots | [Weapon data and combat](Technical/Weapons/WeaponDataAndCombat.md) |
+| Edit and save slots at the table and carry a fixed set into the expedition | [Weapon selection and travel](Technical/Weapons/WeaponLoadout.md) |
+| Show distinct shots, resolved impacts and the active weapon | [Weapon feedback and HUD](Technical/Weapons/WeaponFeedback.md) |
 
 `GameDesign/` owns concepts, mechanics, and game rules. `Technical/` owns roadmaps, implementation stages, technical architecture, and implementation details. Open the other branch only for a specific design decision or technical constraint the task needs.
 
