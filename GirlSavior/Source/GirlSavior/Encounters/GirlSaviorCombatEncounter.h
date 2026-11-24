@@ -17,6 +17,8 @@ class AGirlSaviorSafeArea;
 class AGirlSaviorTestProjectile;
 class UBoxComponent;
 class UGirlSaviorDamageReceiverComponent;
+class UGirlSaviorExpeditionSessionSubsystem;
+class UGirlSaviorSupportRun;
 struct FGirlSaviorWaveEntrance;
 
 UENUM(BlueprintType)
@@ -25,7 +27,8 @@ enum class EGirlSaviorRunState : uint8
     Waiting,
     Active,
     Succeeded,
-    Defeated
+    Defeated,
+    Recovery
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGirlSaviorCombatantEvent, AGirlSaviorEnemyCharacter*, Enemy);
@@ -112,6 +115,13 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Combat")
     bool Retry();
 
+    bool IsCampOrigin() const { return bCampOrigin; }
+    FGuid GetCampRunId() const { return CampRunId; }
+    const FText& GetRecoveryMessage() const { return RecoveryMessage; }
+    bool CanReturnToCamp() const;
+    bool ReturnToCamp(FText& OutError);
+    void NotifyHeroWeaponDamage(AActor* HitActor, const FGirlSaviorDamageResult& Result);
+
     bool CanEnemyEngage(const AActor& Source) const;
     bool AttachFeedback(AGirlSaviorCombatFeedbackPresenter& Presenter);
     void DetachFeedback(const AGirlSaviorCombatFeedbackPresenter& Presenter);
@@ -169,9 +179,12 @@ private:
         bool bIntroduction = false;
     };
 
-    bool InitializeRun(AGirlSaviorCharacter& Pawn);
+    bool InitializeRun(APawn& Pawn);
+    bool InitializeCombat(AGirlSaviorCharacter& Pawn);
     bool BindHero(AGirlSaviorCharacter& Pawn);
     void UnbindHero();
+    void EnterCampRecovery(AController* LocalController, const FText& Message);
+    UGirlSaviorExpeditionSessionSubsystem* GetExpeditionSession() const;
     void BindAdmission(UGirlSaviorDamageReceiverComponent& Receiver);
     EGirlSaviorDamageOutcome CheckDamageBoundary(const AActor& Target, const FGirlSaviorDamageSpec& Spec) const;
     void CaptureView();
@@ -207,6 +220,12 @@ private:
     FSceneViewProjectionData View;
     FVector ViewOrigin = FVector::ZeroVector;
     FGirlSaviorDamageResult DefeatResult;
+    FGuid CampRunId;
+    FText RecoveryMessage;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UGirlSaviorSupportRun> SupportRun;
+
     EGirlSaviorRunState RunState = EGirlSaviorRunState::Waiting;
     double OutcomeVisibleAt = 0.0;
     int64 LastAttackId = 0;
@@ -225,4 +244,5 @@ private:
     bool bViewValid = false;
     bool bCleanupPending = false;
     bool bRetryRequested = false;
+    bool bCampOrigin = false;
 };

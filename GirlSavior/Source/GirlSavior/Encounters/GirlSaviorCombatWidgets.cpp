@@ -182,6 +182,9 @@ TSharedRef<SWidget> UGirlSaviorCombatOutcomeWidget::RebuildWidget()
         ResultCause = MakeText(*WidgetTree, FText::GetEmpty(), 15, WarmColor);
         ResultCause->SetAutoWrapText(true);
         ResultColumn->AddChildToVerticalBox(ResultCause.Get())->SetPadding(FMargin(0, 6, 0, 0));
+        ResultActionStatus = MakeText(*WidgetTree, FText::GetEmpty(), 14, WarmColor);
+        ResultActionStatus->SetAutoWrapText(true);
+        ResultColumn->AddChildToVerticalBox(ResultActionStatus.Get())->SetPadding(FMargin(0, 6, 0, 0));
 
         RetryButton = WidgetTree->ConstructWidget<UButton>();
         FButtonStyle ButtonStyle;
@@ -190,7 +193,8 @@ TSharedRef<SWidget> UGirlSaviorCombatOutcomeWidget::RebuildWidget()
         ButtonStyle.SetPressed(FSlateColorBrush(FLinearColor(0.69f, 0.37f, 0.16f)));
         RetryButton->SetStyle(ButtonStyle);
         auto* ButtonLabel = MakePanel(*WidgetTree, FMargin(14, 6), FLinearColor::Transparent);
-        ButtonLabel->AddChild(MakeText(*WidgetTree, LOCTEXT("Retry", "Повторить"), 15, PanelColor, true));
+        ResultActionLabel = MakeText(*WidgetTree, FText::GetEmpty(), 15, PanelColor, true);
+        ButtonLabel->AddChild(ResultActionLabel.Get());
         RetryButton->AddChild(ButtonLabel);
         RetryButton->OnClicked.AddUniqueDynamic(this, &ThisClass::HandleRetryClicked);
         auto* RetrySlot = ResultColumn->AddChildToVerticalBox(RetryButton.Get());
@@ -208,6 +212,7 @@ void UGirlSaviorCombatOutcomeWidget::ClearResult()
         DeathNotice->SetVisibility(ESlateVisibility::Collapsed);
         ResultBackdrop->SetVisibility(ESlateVisibility::Collapsed);
         ResultPanel->SetVisibility(ESlateVisibility::Collapsed);
+        ResultActionStatus->SetVisibility(ESlateVisibility::Collapsed);
         RetryButton->SetIsEnabled(true);
     }
 }
@@ -219,19 +224,40 @@ void UGirlSaviorCombatOutcomeWidget::ShowDeathNotice(const FText& Cause)
     DeathNotice->SetVisibility(ESlateVisibility::HitTestInvisible);
 }
 
-void UGirlSaviorCombatOutcomeWidget::ShowResult(bool bDefeated, const FText& Cause)
+// The same panel presents victories, defeats and interrupted Camp launches.
+void UGirlSaviorCombatOutcomeWidget::PresentResult(const FText& Title, const FText& Detail, const FText& Action)
 {
     ClearResult();
-    ResultTitle->SetText(bDefeated ? LOCTEXT("Defeat", "Герой погиб") : LOCTEXT("Success", "Выход достигнут"));
-    ResultCause->SetText(Cause);
-    ResultCause->SetVisibility(bDefeated ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+    ResultTitle->SetText(Title);
+    ResultCause->SetText(Detail);
+    ResultCause->SetVisibility(Detail.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+    ResultActionLabel->SetText(Action);
+    RetryButton->SetVisibility(Action.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
     ResultBackdrop->SetVisibility(ESlateVisibility::HitTestInvisible);
     ResultPanel->SetVisibility(ESlateVisibility::Visible);
 }
 
+void UGirlSaviorCombatOutcomeWidget::ShowResult(bool bDefeated, const FText& Cause, const FText& Action)
+{
+    PresentResult(bDefeated ? LOCTEXT("Defeat", "Герой погиб") : LOCTEXT("Success", "Выход достигнут"), Cause, Action);
+}
+
+void UGirlSaviorCombatOutcomeWidget::ShowRecovery(const FText& Message, const FText& Action)
+{
+    PresentResult(LOCTEXT("RecoveryTitle", "Вылазка прервана"), Message, Action);
+}
+
+// Keep the result and its cause visible when an action can be retried from the origin.
+void UGirlSaviorCombatOutcomeWidget::SetActionFailure(const FText& Message)
+{
+    ResultActionStatus->SetText(Message);
+    ResultActionStatus->SetVisibility(Message.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+    RetryButton->SetIsEnabled(true);
+}
+
 void UGirlSaviorCombatOutcomeWidget::HandleRetryClicked()
 {
-    if (IsOutcomePanelVisible() && RetryButton->GetIsEnabled())
+    if (IsOutcomePanelVisible() && RetryButton->GetVisibility() == ESlateVisibility::Visible && RetryButton->GetIsEnabled())
     {
         RetryButton->SetIsEnabled(false);
         OnRetryRequested.Broadcast();
@@ -264,6 +290,17 @@ FText UGirlSaviorCombatOutcomeWidget::GetDisplayedCause() const
         return NoticeCause->GetText();
     }
     return IsOutcomePanelVisible() ? ResultCause->GetText() : FText::GetEmpty();
+}
+
+FText UGirlSaviorCombatOutcomeWidget::GetDisplayedActionLabel() const
+{
+    return IsOutcomePanelVisible() ? ResultActionLabel->GetText() : FText::GetEmpty();
+}
+
+FText UGirlSaviorCombatOutcomeWidget::GetActionStatus() const
+{
+    return IsOutcomePanelVisible() && ResultActionStatus->GetVisibility() != ESlateVisibility::Collapsed
+        ? ResultActionStatus->GetText() : FText::GetEmpty();
 }
 
 #undef LOCTEXT_NAMESPACE

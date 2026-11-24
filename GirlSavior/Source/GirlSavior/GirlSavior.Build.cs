@@ -12,7 +12,7 @@ public class GirlSavior : ModuleRules
 	
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "GeometryCore", "GeometryAlgorithms", "AIModule", "NavigationSystem", "Slate", "SlateCore" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "GeometryCore", "GeometryAlgorithms", "AIModule", "NavigationSystem", "Slate", "SlateCore", "AssetRegistry" });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

@@ -55,6 +55,27 @@ bool UGirlSaviorFireComponent::SetCombatEncounter(AGirlSaviorCombatEncounter* In
 	return true;
 }
 
+// Change future shot intervals without resetting the existing scheduled deadline.
+bool UGirlSaviorFireComponent::SetSupportRateMultiplier(float Multiplier)
+{
+	if (Multiplier != 1.f)
+	{
+		const float Rate = CombatPistol ? CombatPistol->ShotsPerSecond * Multiplier : 0.f;
+		if (!FMath::IsFinite(Multiplier) || Multiplier < 1.f || !FMath::IsFinite(Rate) || Rate <= 0.f)
+		{
+			return false;
+		}
+	}
+	SupportRateMultiplier = Multiplier;
+	return true;
+}
+
+// The legacy fixture retains its independent prototype firing rate.
+float UGirlSaviorFireComponent::GetEffectiveShotsPerSecond() const
+{
+	return CombatPistol ? CombatPistol->ShotsPerSecond * SupportRateMultiplier : ShotsPerSecond;
+}
+
 void UGirlSaviorFireComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	FActorComponentTickFunction* ThisTickFunction)
 {
@@ -72,7 +93,7 @@ void UGirlSaviorFireComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	}
 	const double Now = GetWorld()->GetTimeSeconds();
 	if (!Schedule.ConsumeDue(Now)) return;
-	const float Rate = bCombatMode ? CombatPistol->ShotsPerSecond : ShotsPerSecond;
+	const float Rate = GetEffectiveShotsPerSecond();
 	if (!FMath::IsFinite(Rate) || Rate <= 0.f || !ProjectileClass
 		|| (bCombatMode && !CombatPistol->IsConfigurationValid())
 		|| ProjectileClass->HasAnyClassFlags(CLASS_Abstract))

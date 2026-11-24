@@ -30,6 +30,8 @@ public:
 	TObjectPtr<UGirlSaviorCombatPistolSettings> CombatPistol;
 
 	bool SetCombatEncounter(AGirlSaviorCombatEncounter* InEncounter);
+	bool SetSupportRateMultiplier(float Multiplier);
+	float GetEffectiveShotsPerSecond() const;
 
 	UPROPERTY(BlueprintAssignable, Category="Prototype|Fire")
 	FGirlSaviorShotCue OnShotCue;
@@ -41,4 +43,5 @@ protected:
 private:
 	FGirlSaviorFireSchedule Schedule;
 	TWeakObjectPtr<AGirlSaviorCombatEncounter> CombatEncounter;
+	float SupportRateMultiplier = 1.f;
 };

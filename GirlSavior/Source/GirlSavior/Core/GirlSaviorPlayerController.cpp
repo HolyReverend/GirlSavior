@@ -33,12 +33,18 @@ void AGirlSaviorPlayerController::OnPossess(APawn* InPawn)
 		TArray<AActor*> Overlaps;
 		InPawn->GetOverlappingActors(Overlaps, AGirlSaviorSafeArea::StaticClass());
 		for (AActor* Area : Overlaps) CastChecked<AGirlSaviorSafeArea>(Area)->RegisterPawn(InPawn);
-		bShowMouseCursor = true;
-		FInputModeGameAndUI InputMode;
-		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-		InputMode.SetHideCursorDuringCapture(false);
-		SetInputMode(InputMode);
+		RestoreGameplayInputMode();
 	}
+}
+
+// Use the same cursor and capture rules after possession and after closing a local modal.
+void AGirlSaviorPlayerController::RestoreGameplayInputMode()
+{
+	bShowMouseCursor = true;
+	FInputModeGameAndUI InputMode;
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	InputMode.SetHideCursorDuringCapture(false);
+	SetInputMode(InputMode);
 }
 
 void AGirlSaviorPlayerController::RegisterGameplayInput()
@@ -192,7 +198,7 @@ void AGirlSaviorPlayerController::PostProcessInput(float DeltaTime, bool bGamePa
 	if (!WorldIntent.IsNearlyZero())
 	{
 		PrototypeCharacter->AddMovementInput(WorldIntent.GetSafeNormal(), WorldIntent.Size());
-		if (bTryDash)
+		if (bTryDash && IsDashAllowed())
 		{
 			CastChecked<UGirlSaviorCharacterMovementComponent>(PrototypeCharacter->GetCharacterMovement())
 				->TryStartDash(WorldIntent);
@@ -222,7 +228,7 @@ bool AGirlSaviorPlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
 	// Read readiness on the physical press. Repeats or presses during cooldown never queue.
 	if (Params.Key == EKeys::LeftShift && Params.Event == IE_Pressed
-		&& CanUseGameplayInput() && !IsMoveInputIgnored() && !IsInSafeArea())
+		&& IsDashAllowed() && CanUseGameplayInput() && !IsMoveInputIgnored() && !IsInSafeArea())
 	{
 		if (const auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn()))
 		{

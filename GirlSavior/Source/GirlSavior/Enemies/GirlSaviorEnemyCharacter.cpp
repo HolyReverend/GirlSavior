@@ -87,7 +87,7 @@ bool AGirlSaviorEnemyCharacter::InitializeForEncounter(AGirlSaviorCombatEncounte
 
     Encounter = &InEncounter;
     GetCapsuleComponent()->SetCapsuleSize(Definition->CapsuleRadius, Definition->CapsuleHalfHeight);
-    GetCharacterMovement()->MaxWalkSpeed = Definition->WalkSpeed;
+    ClearSupportWalkSpeedMultiplier();
     DamageReceiver->OnDied.AddUObject(this, &AGirlSaviorEnemyCharacter::HandleDeath);
     bEncounterInitialized = true;
     return true;
@@ -114,6 +114,21 @@ bool AGirlSaviorEnemyCharacter::IsInFixtureRoom(const FVector& Location) const
     const FVector Extent = Box->GetScaledBoxExtent();
     const FVector Local = Box->GetComponentTransform().InverseTransformPositionNoScale(Location);
     return FBox(-Extent, Extent).IsInsideOrOn(Local);
+}
+
+// Reapply the named support modifier from base speed. The charge path uses its own speed.
+void AGirlSaviorEnemyCharacter::SetSupportWalkSpeedMultiplier(float Multiplier)
+{
+    if (Definition && FMath::IsFinite(Multiplier) && Multiplier > 0.f && Multiplier <= 1.f)
+    {
+        GetCharacterMovement()->MaxWalkSpeed = Definition->WalkSpeed * Multiplier;
+    }
+}
+
+// Expiry and retirement restore the exact authored walking speed.
+void AGirlSaviorEnemyCharacter::ClearSupportWalkSpeedMultiplier()
+{
+    SetSupportWalkSpeedMultiplier(1.f);
 }
 
 // Stop live behavior for death and terminal cleanup while the actor can still present cues.

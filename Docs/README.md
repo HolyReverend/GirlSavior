@@ -12,6 +12,7 @@ Use this index when you need to find a document. Start with the file and section
 | Direct Unreal implementation work | [Implementation rules](Technical/ImplementationRules.md) |
 | Prototype scope, stage order, or planned responsibilities | [Prototype 1 plan](Technical/Prototype%231/ImplementationPlan.md) |
 | Playable combat route with ordinary enemies and waves | [Combat prototype plan](Technical/CombatPrototype/ImplementationPlan.md) |
+| Walkable Camp, two-of-three skill preparation and the linked combat route | [Camp prototype plan](Technical/CampPrototype/ImplementationPlan.md) |
 
 ## Prototype 1 technical tasks
 
@@ -33,6 +34,14 @@ Use this index when you need to find a document. Start with the file and section
 | Implement the Pursuer, Shooter and Charger | [Ordinary enemies](Technical/CombatPrototype/BasicEnemies.md) |
 | Author entrances and handle reinforcement pressure | [Enemy waves](Technical/CombatPrototype/EnemyWaves.md) |
 | Wire warnings, impacts, HUD feedback and the result overlay | [Combat feedback](Technical/CombatPrototype/CombatFeedback.md) |
+
+## Camp prototype technical tasks
+
+| Task | Detailed document |
+| --- | --- |
+| Build the walkable blockout and the preparation flow at the table | [Camp scene and preparation](Technical/CampPrototype/CampScene.md) |
+| Author heroines, skill cards and configurable mechanic definitions | [Heroine and support skill data](Technical/CampPrototype/SupportSkills.md) |
+| Transfer the confirmed skills, apply them in combat, and return to Camp | [Camp to expedition handoff](Technical/CampPrototype/ExpeditionHandoff.md) |
 
 `GameDesign/` owns concepts, mechanics, and game rules. `Technical/` owns roadmaps, implementation stages, technical architecture, and implementation details. Open the other branch only for a specific design decision or technical constraint the task needs.
 

@@ -44,6 +44,8 @@ protected:
 	virtual void OnUnPossess() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PostProcessInput(float DeltaTime, bool bGamePaused) override;
+	virtual bool IsDashAllowed() const { return true; }
+	void RestoreGameplayInputMode();
 
 	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Input")
 	TObjectPtr<UInputAction> MoveAction;

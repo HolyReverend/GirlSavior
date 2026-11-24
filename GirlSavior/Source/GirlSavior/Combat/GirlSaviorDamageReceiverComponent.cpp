@@ -4,6 +4,7 @@
 #include "Characters/GirlSaviorCharacterMovementComponent.h"
 #include "Combat/GirlSaviorVitalsSettings.h"
 #include "Math/NumericLimits.h"
+#include "Misc/ScopeExit.h"
 
 namespace
 {
@@ -50,6 +51,44 @@ bool UGirlSaviorDamageReceiverComponent::InitializeVitals(const FGirlSaviorVital
 	return true;
 }
 
+// A support grant starts full and has its own cap and remaining amount.
+bool UGirlSaviorDamageReceiverComponent::InstallSupportBarrier(double Capacity)
+{
+	if (!IsAlive() || bResolvingDamage || SupportBarrierCap > 0.0 || Capacity <= 0.0
+		|| !FMath::IsFinite(Capacity + InitialBarrier))
+	{
+		return false;
+	}
+	SupportBarrier = SupportBarrierCap = Capacity;
+	OnBarrierChanged.Broadcast();
+	return true;
+}
+
+// Recharge the support grant only. Damage may have already spent the baseline pool.
+void UGirlSaviorDamageReceiverComponent::RefillSupportBarrier()
+{
+	if (IsAlive() && !bResolvingDamage && SupportBarrier < SupportBarrierCap)
+	{
+		SupportBarrier = SupportBarrierCap;
+		OnBarrierChanged.Broadcast();
+	}
+}
+
+// Leave the original barrier exactly as the current fight has worn it down.
+void UGirlSaviorDamageReceiverComponent::RemoveSupportBarrier()
+{
+	if (bResolvingDamage)
+	{
+		bSupportRemovalPending = true;
+		return;
+	}
+	if (SupportBarrierCap > 0.0)
+	{
+		SupportBarrier = SupportBarrierCap = 0.0;
+		OnBarrierChanged.Broadcast();
+	}
+}
+
 // Serialized legacy callers supply one physical portion and an explicitly neutral source.
 bool UGirlSaviorDamageReceiverComponent::TryApplyDamage(EGirlSaviorDamageKind Kind, float Amount)
 {
@@ -80,7 +119,7 @@ FGirlSaviorDamageResult UGirlSaviorDamageReceiverComponent::ResolveDamage(const 
 	}
 
 	Result.HealthBefore = Result.HealthAfter = Health;
-	Result.BarrierBefore = Result.BarrierAfter = Barrier;
+	Result.BarrierBefore = Result.BarrierAfter = GetBarrier();
 	const FGirlSaviorDamageSpec& Spec = Result.Spec;
 	const AActor* Owner = GetOwner();
 	const bool bDirect = IsDirectHit(Spec.Delivery);
@@ -96,6 +135,15 @@ FGirlSaviorDamageResult UGirlSaviorDamageReceiverComponent::ResolveDamage(const 
 		return Result;
 	}
 
+	// Teardown from a damage listener may request removal. Finish publishing the committed hit first.
+	ON_SCOPE_EXIT
+	{
+		if (bSupportRemovalPending)
+		{
+			bSupportRemovalPending = false;
+			RemoveSupportBarrier();
+		}
+	};
 	TGuardValue<bool> ResolvingGuard(bResolvingDamage, true);
 	if (DamageAdmission.IsBound())
 	{
@@ -130,14 +178,17 @@ FGirlSaviorDamageResult UGirlSaviorDamageReceiverComponent::ResolveDamage(const 
 		constexpr double IncomingMultiplier = 1.0;
 		const double Adjusted = (Spec.Physical * (1.0 - PhysicalResistance)
 			+ Spec.Magical * (1.0 - MagicalResistance)) * IncomingMultiplier;
-		const double Absorbed = FMath::Min(Barrier, Adjusted);
-		Barrier = FMath::Max(0.0, Barrier - Absorbed);
-		Health = FMath::Clamp(Health - (Adjusted - Absorbed), 0.0, MaxHealth);
+		const double SupportAbsorbed = FMath::Min(SupportBarrier, Adjusted);
+		const double Remainder = Adjusted - SupportAbsorbed;
+		const double BaselineAbsorbed = FMath::Min(Barrier, Remainder);
+		SupportBarrier -= SupportAbsorbed;
+		Barrier -= BaselineAbsorbed;
+		Health = FMath::Clamp(Health - (Remainder - BaselineAbsorbed), 0.0, MaxHealth);
 		Result.HealthAfter = Health;
-		Result.BarrierAfter = Barrier;
+		Result.BarrierAfter = GetBarrier();
 		Result.HealthLost = Result.HealthBefore - Health;
-		Result.BarrierLost = Result.BarrierBefore - Barrier;
-		Result.bBarrierBroken = Result.BarrierBefore > 0.0 && Barrier == 0.0;
+		Result.BarrierLost = Result.BarrierBefore - Result.BarrierAfter;
+		Result.bBarrierBroken = Result.BarrierBefore > 0.0 && Result.BarrierAfter == 0.0;
 		Result.bKilled = Result.HealthBefore > 0.0 && Health == 0.0;
 		if (Result.bKilled)
 		{

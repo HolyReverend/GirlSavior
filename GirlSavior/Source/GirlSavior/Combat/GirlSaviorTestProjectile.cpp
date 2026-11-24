@@ -373,6 +373,11 @@ void AGirlSaviorTestProjectile::Complete(EGirlSaviorProjectileCompletion Reason,
 			Impact.ContactType = EGirlSaviorProjectileContact::Target;
 			Impact.bHasDamageResult = true;
 			Impact.DamageResult = Receiver->ResolveDamage(Damage);
+			// Support consumes only the final committed pistol hit, after structural death listeners.
+			if (auto* HitEncounter = CombatEncounter.Get(); bCombatShot && HitEncounter)
+			{
+				HitEncounter->NotifyHeroWeaponDamage(HitActor, Impact.DamageResult);
+			}
 		}
 
 		OnResolvedImpact.Broadcast(Impact);

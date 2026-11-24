@@ -447,7 +447,8 @@ void AGirlSaviorCombatFeedbackPresenter::HandleChargeStop(const FVector& Positio
 
 void AGirlSaviorCombatFeedbackPresenter::HandleRunState(EGirlSaviorRunState State)
 {
-    if (State == EGirlSaviorRunState::Succeeded || State == EGirlSaviorRunState::Defeated)
+    if (State == EGirlSaviorRunState::Succeeded || State == EGirlSaviorRunState::Defeated
+        || State == EGirlSaviorRunState::Recovery)
     {
         ClearWarnings();
         for (auto& Entry : BodyPoses)

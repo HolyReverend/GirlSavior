@@ -25,7 +25,7 @@ void AGirlSaviorCombatHUD::ReleasePresentation()
 
 namespace
 {
-const FLinearColor MutedColor(0.55f, 0.61f, 0.65f);
+const FLinearColor DashUnavailableColor(0.55f, 0.61f, 0.65f);
 const FLinearColor ReadyColor(0.74f, 0.84f, 0.78f);
 const FLinearColor ProtectedColor(0.35f, 0.85f, 0.96f);
 const FLinearColor CooldownColor(0.93f, 0.64f, 0.38f);
@@ -141,6 +141,7 @@ void AGirlSaviorCombatHUD::BindHero(AGirlSaviorCharacter* Hero)
     if (auto* PreviousReceiver = Receiver.Get())
     {
         PreviousReceiver->OnDamageResolved.RemoveDynamic(this, &ThisClass::HandleDamageResolved);
+        PreviousReceiver->OnBarrierChanged.RemoveAll(this);
     }
     BoundHero = Hero;
     Receiver = Hero ? Hero->GetDamageReceiver() : nullptr;
@@ -152,6 +153,7 @@ void AGirlSaviorCombatHUD::BindHero(AGirlSaviorCharacter* Hero)
     if (Current)
     {
         Current->OnDamageResolved.AddUniqueDynamic(this, &ThisClass::HandleDamageResolved);
+        Current->OnBarrierChanged.AddUObject(this, &ThisClass::HandleBarrierChanged);
     }
     if (VitalsWidget)
     {
@@ -159,7 +161,7 @@ void AGirlSaviorCombatHUD::BindHero(AGirlSaviorCharacter* Hero)
         if (Current)
         {
             VitalsWidget->SetVitals(Current->GetHealth(), Current->GetMaxHealth(),
-                Current->GetBarrier(), Current->GetInitialBarrier());
+                Current->GetBarrier(), Current->GetMaxBarrier());
         }
         else
         {
@@ -176,7 +178,17 @@ void AGirlSaviorCombatHUD::HandleDamageResolved(const FGirlSaviorDamageResult& R
     if (VitalsWidget && Receiver.IsValid() && Result.Outcome == EGirlSaviorDamageOutcome::Applied)
     {
         VitalsWidget->SetVitals(Result.HealthAfter, Receiver->GetMaxHealth(),
-            Result.BarrierAfter, Receiver->GetInitialBarrier());
+            Result.BarrierAfter, Receiver->GetMaxBarrier());
+    }
+}
+
+// Recharge and grant removal publish a vitals update without a new hit.
+void AGirlSaviorCombatHUD::HandleBarrierChanged()
+{
+    if (VitalsWidget && Receiver.IsValid())
+    {
+        VitalsWidget->SetVitals(Receiver->GetHealth(), Receiver->GetMaxHealth(),
+            Receiver->GetBarrier(), Receiver->GetMaxBarrier());
     }
 }
 
@@ -253,7 +265,7 @@ void AGirlSaviorCombatHUD::RefreshDash()
         break;
     }
     default:
-        VitalsWidget->SetDash(LOCTEXT("DashUnavailable", "Рывок недоступен"), MutedColor);
+        VitalsWidget->SetDash(LOCTEXT("DashUnavailable", "Рывок недоступен"), DashUnavailableColor);
         break;
     }
 }
@@ -282,24 +294,51 @@ void AGirlSaviorCombatHUD::RefreshOutcome()
     {
         return;
     }
-    const bool bDefeated = Encounter->GetRunState() == EGirlSaviorRunState::Defeated;
-    OutcomeWidget->ShowResult(bDefeated, bDefeated ? GetDefeatCause(*Encounter.Get()) : FText::GetEmpty());
+    const auto State = Encounter->GetRunState();
+    const FText Action = Encounter->IsCampOrigin()
+        ? (Encounter->CanReturnToCamp() ? LOCTEXT("ReturnToCamp", "В лагерь") : FText::GetEmpty())
+        : LOCTEXT("Retry", "Повторить");
+    if (State == EGirlSaviorRunState::Recovery)
+    {
+        OutcomeWidget->ShowRecovery(Encounter->GetRecoveryMessage(), Action);
+    }
+    else
+    {
+        const bool bDefeated = State == EGirlSaviorRunState::Defeated;
+        OutcomeWidget->ShowResult(bDefeated, bDefeated ? GetDefeatCause(*Encounter.Get()) : FText::GetEmpty(), Action);
+    }
+    FocusOutcome();
+}
+
+// The visible action owns focus. A token without a trusted return still has a diagnostic panel.
+void AGirlSaviorCombatHUD::FocusOutcome()
+{
     if (APlayerController* Controller = GetOwningPlayerController())
     {
         Controller->bShowMouseCursor = true;
+        UWidget* FocusWidget = OutcomeWidget->GetDisplayedActionLabel().IsEmpty()
+            ? static_cast<UWidget*>(OutcomeWidget.Get()) : OutcomeWidget->GetRetryButton();
+        OutcomeWidget->SetIsFocusable(true);
         FInputModeUIOnly Mode;
-        Mode.SetWidgetToFocus(OutcomeWidget->GetRetryButton()->TakeWidget());
+        Mode.SetWidgetToFocus(FocusWidget->TakeWidget());
         Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
         Controller->SetInputMode(Mode);
-        OutcomeWidget->GetRetryButton()->SetUserFocus(Controller);
+        FocusWidget->SetUserFocus(Controller);
     }
 }
 
+// A failed synchronous return leaves the same result, action and focus in place.
 void AGirlSaviorCombatHUD::HandleRetry()
 {
-    if (Encounter.IsValid())
+    if (Encounter.IsValid() && OutcomeWidget)
     {
-        Encounter->Retry();
+        FText Error;
+        const bool bRequested = Encounter->IsCampOrigin() ? Encounter->ReturnToCamp(Error) : Encounter->Retry();
+        if (!bRequested)
+        {
+            OutcomeWidget->SetActionFailure(Error);
+            FocusOutcome();
+        }
     }
 }
 
@@ -310,6 +349,7 @@ void AGirlSaviorCombatHUD::FocusGameplayViewport()
     const auto* Viewport = Player ? Player->ViewportClient.Get() : nullptr;
     const TSharedPtr<SViewport> GameWidget = Viewport ? Viewport->GetGameViewportWidget() : nullptr;
     if (FSlateApplication::IsInitialized() && GameWidget && Encounter.IsValid()
+        && (!OutcomeWidget || !OutcomeWidget->IsOutcomePanelVisible())
         && Encounter->GetRunState() == EGirlSaviorRunState::Waiting)
     {
         FSlateApplication::Get().SetKeyboardFocus(GameWidget, EFocusCause::SetDirectly);

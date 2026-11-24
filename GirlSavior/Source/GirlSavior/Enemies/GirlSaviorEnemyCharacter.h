@@ -38,6 +38,8 @@ public:
     void ActivateForEncounter();
     void StopForEncounter();
     bool IsInFixtureRoom(const FVector& Location) const;
+    void SetSupportWalkSpeedMultiplier(float Multiplier);
+    void ClearSupportWalkSpeedMultiplier();
 
     UFUNCTION(BlueprintPure, Category = "Combat")
     UGirlSaviorDamageReceiverComponent* GetDamageReceiver() const { return DamageReceiver; }

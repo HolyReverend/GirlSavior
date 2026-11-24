@@ -17,6 +17,7 @@ enum class EGirlSaviorDamageKind : uint8
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGirlSaviorAcceptedDamage, EGirlSaviorDamageKind, Kind, float, Amount);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGirlSaviorDamageResolved, const FGirlSaviorDamageResult&, Result);
 DECLARE_MULTICAST_DELEGATE_OneParam(FGirlSaviorDamageDeath, const FGirlSaviorDamageResult&);
+DECLARE_MULTICAST_DELEGATE(FGirlSaviorBarrierChanged);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FGirlSaviorDamagePresentation, AActor&, const FGirlSaviorDamageResult&);
 DECLARE_DELEGATE_RetVal_OneParam(EGirlSaviorDamageOutcome, FGirlSaviorDamageAdmission, const FGirlSaviorDamageSpec&);
 
@@ -52,10 +53,15 @@ public:
 	double GetHealth() const { return Health; }
 
 	UFUNCTION(BlueprintPure, Category = "Prototype|Damage")
-	double GetBarrier() const { return Barrier; }
+	double GetBarrier() const { return Barrier + SupportBarrier; }
 
 	UFUNCTION(BlueprintPure, Category = "Prototype|Damage")
 	double GetInitialBarrier() const { return InitialBarrier; }
+	double GetMaxBarrier() const { return InitialBarrier + SupportBarrierCap; }
+	bool InstallSupportBarrier(double Capacity);
+	void RefillSupportBarrier();
+	void RemoveSupportBarrier();
+	FGirlSaviorBarrierChanged OnBarrierChanged;
 
 	const FGirlSaviorDamageResult& GetLastLethalResult() const { return LastLethalResult; }
 
@@ -86,8 +92,11 @@ private:
 	double Health = 0.0;
 	double Barrier = 0.0;
 	double InitialBarrier = 0.0;
+	double SupportBarrier = 0.0;
+	double SupportBarrierCap = 0.0;
 	double PhysicalResistance = 0.0;
 	double MagicalResistance = 0.0;
 	bool bHasVitals = false;
 	bool bResolvingDamage = false;
+	bool bSupportRemovalPending = false;
 };

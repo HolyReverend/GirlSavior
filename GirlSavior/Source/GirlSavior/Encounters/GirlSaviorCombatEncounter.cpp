@@ -15,12 +15,17 @@
 #include "Encounters/GirlSaviorCombatRoom.h"
 #include "Enemies/GirlSaviorEnemyAttackComponent.h"
 #include "Enemies/GirlSaviorEnemyCharacter.h"
+#include "Expeditions/GirlSaviorExpeditionSessionSubsystem.h"
+#include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameModeBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Support/GirlSaviorSupportRun.h"
 
+#define LOCTEXT_NAMESPACE "GirlSaviorCombatEncounter"
 DEFINE_LOG_CATEGORY_STATIC(LogGirlSaviorEncounter, Log, All);
 
 namespace
@@ -49,8 +54,72 @@ AGirlSaviorCombatEncounter::AGirlSaviorCombatEncounter()
     ConfigureTrigger(*ExitVolume);
 }
 
-// Wait until the local pawn exists, then bind receiver admission before opening combat.
-bool AGirlSaviorCombatEncounter::InitializeRun(AGirlSaviorCharacter& Pawn)
+// A pending Camp launch is claimed before any combat or support is initialized.
+bool AGirlSaviorCombatEncounter::InitializeRun(APawn& Pawn)
+{
+    auto* Session = GetExpeditionSession();
+    const AGameModeBase* GameMode = GetWorld()->GetAuthGameMode();
+    FGirlSaviorExpeditionLaunch Launch;
+    FText Error;
+    const auto Claim = Session && GameMode ? Session->ClaimLaunch(*GetWorld(), GameMode->OptionsString, Launch, Error)
+        : EGirlSaviorExpeditionClaim::Standalone;
+    // A direct start may briefly possess a different pawn before the combat hero arrives.
+    if (Claim == EGirlSaviorExpeditionClaim::Standalone && !Pawn.IsA<AGirlSaviorCharacter>())
+    {
+        return false;
+    }
+    bInitializationAttempted = true;
+    if (Claim == EGirlSaviorExpeditionClaim::Duplicate)
+    {
+        return false;
+    }
+
+    bCampOrigin = Claim != EGirlSaviorExpeditionClaim::Standalone;
+    CampRunId = Claim == EGirlSaviorExpeditionClaim::Claimed ? Launch.RunId
+        : (bCampOrigin ? Session->GetActiveRunId(*GetWorld()) : FGuid());
+    if (Claim == EGirlSaviorExpeditionClaim::Rejected)
+    {
+        EnterCampRecovery(Pawn.GetController(), Error);
+        return false;
+    }
+
+    if (Claim == EGirlSaviorExpeditionClaim::Claimed)
+    {
+        TArray<const UGirlSaviorSupportAbilityDefinition*, TInlineAllocator<2>> Abilities;
+        for (const auto& Ability : Launch.Abilities)
+        {
+            Abilities.Add(Ability.Get());
+        }
+        SupportRun = NewObject<UGirlSaviorSupportRun>(this);
+        if (!SupportRun->Configure(Abilities, Error))
+        {
+            EnterCampRecovery(Pawn.GetController(), Error);
+            return false;
+        }
+    }
+
+    auto* CombatPawn = Cast<AGirlSaviorCharacter>(&Pawn);
+    if (!CombatPawn || !InitializeCombat(*CombatPawn)
+        || (bCampOrigin && !Session->CommitLaunch(*GetWorld(), CampRunId, Error)))
+    {
+        if (bCampOrigin)
+        {
+            EnterCampRecovery(Pawn.GetController(), Error.IsEmpty()
+                ? LOCTEXT("InitFailed", "Не удалось подготовить боевой маршрут.") : Error);
+        }
+        return false;
+    }
+    if (bCampOrigin)
+    {
+        UE_LOG(LogGirlSaviorEncounter, Display, TEXT("Camp support attached: run=%s mission=%s pair=%s,%s map=%s"),
+            *CampRunId.ToString(), *Launch.MissionId.ToString(), *Launch.AbilityIds[0].ToString(),
+            *Launch.AbilityIds[1].ToString(), *GetWorld()->GetPackage()->GetName());
+    }
+    return true;
+}
+
+// Bind receiver admission and every authored participant before opening combat.
+bool AGirlSaviorCombatEncounter::InitializeCombat(AGirlSaviorCharacter& Pawn)
 {
     if (!IsValid(SafeArea) || (bWavesEnabled ? !ValidateWaveRoute() : PlacedEnemies.IsEmpty()) || !BindHero(Pawn))
     {
@@ -95,7 +164,7 @@ bool AGirlSaviorCombatEncounter::BindHero(AGirlSaviorCharacter& Pawn)
 {
     auto* Controller = Cast<AGirlSaviorPlayerController>(Pawn.GetController());
     auto* Receiver = Pawn.GetDamageReceiver();
-    if (!Controller || !Controller->IsLocalController()
+    if (!Controller || !Controller->IsLocalController() || !IsValid(SafeArea) || !IsValid(SafeArea->SafeVolume)
         || !Pawn.GetFireComponent()->SetCombatEncounter(this))
     {
         return false;
@@ -106,6 +175,17 @@ bool AGirlSaviorCombatEncounter::BindHero(AGirlSaviorCharacter& Pawn)
     {
         Pawn.GetFireComponent()->SetCombatEncounter(nullptr);
         return false;
+    }
+    if (SupportRun)
+    {
+        FText Error;
+        if (!SupportRun->Attach(Pawn, Error))
+        {
+            UE_LOG(LogGirlSaviorEncounter, Error, TEXT("Camp support attach failed: run=%s reason=%s"),
+                *CampRunId.ToString(), *Error.ToString());
+            Pawn.GetFireComponent()->SetCombatEncounter(nullptr);
+            return false;
+        }
     }
 
     Hero = &Pawn;
@@ -120,6 +200,10 @@ bool AGirlSaviorCombatEncounter::BindHero(AGirlSaviorCharacter& Pawn)
 
 void AGirlSaviorCombatEncounter::UnbindHero()
 {
+    if (SupportRun)
+    {
+        SupportRun->Detach();
+    }
     if (AGirlSaviorCharacter* Previous = Hero.Get())
     {
         Previous->GetDamageReceiver()->OnDied.RemoveAll(this);
@@ -141,6 +225,11 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
     {
         bCleanupPending = false;
         // A lethal projectile may still be dispatching when the run first closes.
+        if (SupportRun)
+        {
+            SupportRun->Detach();
+            UE_LOG(LogGirlSaviorEncounter, Display, TEXT("Camp support detached: run=%s"), *CampRunId.ToString());
+        }
         const auto Projectiles = MoveTemp(LiveProjectiles);
         LiveProjectiles.Reset();
         for (const auto& Projectile : Projectiles)
@@ -162,9 +251,8 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
     }
     if (!bInitializationAttempted)
     {
-        if (auto* Pawn = Cast<AGirlSaviorCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+        if (auto* Pawn = UGameplayStatics::GetPlayerPawn(this, 0))
         {
-            bInitializationAttempted = true;
             bInitialized = InitializeRun(*Pawn);
         }
     }
@@ -188,9 +276,13 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
                 }
             }
             UnbindHero();
-            if (auto* Pawn = Cast<AGirlSaviorCharacter>(Current))
+            auto* Pawn = Cast<AGirlSaviorCharacter>(Current);
+            const bool bBound = Pawn && BindHero(*Pawn);
+            if (bCampOrigin && Current && !bBound)
             {
-                BindHero(*Pawn);
+                EnterCampRecovery(Current->GetController(),
+                    LOCTEXT("HeroRebindFailed", "Не удалось восстановить героя на боевом маршруте."));
+                return;
             }
         }
     }
@@ -244,7 +336,8 @@ void AGirlSaviorCombatEncounter::BindAdmission(UGirlSaviorDamageReceiverComponen
 EGirlSaviorDamageOutcome AGirlSaviorCombatEncounter::CheckDamageBoundary(
     const AActor& Target, const FGirlSaviorDamageSpec& Spec) const
 {
-    if (RunState == EGirlSaviorRunState::Defeated || RunState == EGirlSaviorRunState::Succeeded)
+    if (RunState == EGirlSaviorRunState::Defeated || RunState == EGirlSaviorRunState::Succeeded
+        || RunState == EGirlSaviorRunState::Recovery)
     {
         return EGirlSaviorDamageOutcome::Rejected;
     }
@@ -479,9 +572,26 @@ void AGirlSaviorCombatEncounter::ReleaseDangerousAttack(int64 AttackId, const UO
 void AGirlSaviorCombatEncounter::UnregisterEnemy(AGirlSaviorEnemyCharacter* Enemy)
 {
     FEnemyRecord Removed;
-    if (Enemy && LiveEnemies.RemoveAndCopyValue(Enemy, Removed) && Removed.bPublished)
+    if (Enemy && LiveEnemies.RemoveAndCopyValue(Enemy, Removed))
     {
-        OnEnemyRemoved.Broadcast(Enemy);
+        if (SupportRun)
+        {
+            SupportRun->ForgetEnemy(*Enemy);
+        }
+        if (Removed.bPublished)
+        {
+            OnEnemyRemoved.Broadcast(Enemy);
+        }
+    }
+}
+
+// Run effects only for a positive post-resolver pistol hit on a living registered enemy.
+void AGirlSaviorCombatEncounter::NotifyHeroWeaponDamage(AActor* HitActor, const FGirlSaviorDamageResult& Result)
+{
+    auto* Enemy = Cast<AGirlSaviorEnemyCharacter>(HitActor);
+    if (SupportRun && RunState == EGirlSaviorRunState::Active && IsValid(Enemy) && LiveEnemies.Contains(Enemy))
+    {
+        SupportRun->NotifyHeroWeaponDamage(*Enemy, Result);
     }
 }
 
@@ -513,20 +623,28 @@ void AGirlSaviorCombatEncounter::OnHeroDied(const FGirlSaviorDamageResult& Resul
 // Freeze combat immediately. Projectile removal waits for the dispatch frame to finish.
 void AGirlSaviorCombatEncounter::CloseRun(EGirlSaviorRunState TerminalState)
 {
-    if (RunState != EGirlSaviorRunState::Active)
+    if (RunState != EGirlSaviorRunState::Active
+        && !(TerminalState == EGirlSaviorRunState::Recovery && RunState == EGirlSaviorRunState::Waiting))
     {
         return;
     }
     RunState = TerminalState;
+    if (SupportRun)
+    {
+        SupportRun->CloseDispatch();
+    }
     CancelReservation(TEXT("terminal"));
     DangerousAttackId = 0;
     DangerousAttackHolder.Reset();
     OutcomeVisibleAt = GetWorld()->GetTimeSeconds() + (TerminalState == EGirlSaviorRunState::Defeated ? 1.25 : 0.0);
-    if (auto* Controller = Cast<AGirlSaviorPlayerController>(Hero->GetController()))
+    if (AGirlSaviorCharacter* BoundPawn = Hero.Get())
     {
-        Controller->SetGameplayInputAvailable(false);
+        if (auto* Controller = Cast<AGirlSaviorPlayerController>(BoundPawn->GetController()))
+        {
+            Controller->SetGameplayInputAvailable(false);
+        }
+        BoundPawn->GetCharacterMovement()->DisableMovement();
     }
-    Hero->GetCharacterMovement()->DisableMovement();
     const auto Enemies = MoveTemp(LiveEnemies);
     LiveEnemies.Reset();
     for (const auto& Entry : Enemies)
@@ -545,24 +663,73 @@ void AGirlSaviorCombatEncounter::CloseRun(EGirlSaviorRunState TerminalState)
     bCleanupPending = true;
     OnRunStateChanged.Broadcast(RunState);
     UE_LOG(LogGirlSaviorEncounter, Display, TEXT("First fight ended (%s)."),
-        TerminalState == EGirlSaviorRunState::Defeated ? TEXT("defeat") : TEXT("success"));
+        TerminalState == EGirlSaviorRunState::Defeated ? TEXT("defeat")
+            : (TerminalState == EGirlSaviorRunState::Recovery ? TEXT("recovery") : TEXT("success")));
+}
+
+// Publish the diagnostic only after releasing the partial setup and recording trusted recovery.
+void AGirlSaviorCombatEncounter::EnterCampRecovery(AController* LocalController, const FText& Message)
+{
+    RecoveryMessage = Message.IsEmpty() ? LOCTEXT("LaunchFailed", "Не удалось запустить вылазку.") : Message;
+    if (auto* Session = GetExpeditionSession(); Session && CampRunId.IsValid())
+    {
+        Session->EnterRecovery(*GetWorld(), CampRunId, RecoveryMessage);
+    }
+    if (auto* Controller = Cast<AGirlSaviorPlayerController>(LocalController))
+    {
+        Controller->SetGameplayInputAvailable(false);
+        if (auto* CurrentPawn = Cast<ACharacter>(Controller->GetPawn()))
+        {
+            CurrentPawn->GetCharacterMovement()->DisableMovement();
+        }
+    }
+    if (SupportRun)
+    {
+        SupportRun->CloseDispatch();
+    }
+    UnbindHero();
+    CloseRun(EGirlSaviorRunState::Recovery);
+}
+
+UGirlSaviorExpeditionSessionSubsystem* AGirlSaviorCombatEncounter::GetExpeditionSession() const
+{
+    return UGameInstance::GetSubsystem<UGirlSaviorExpeditionSessionSubsystem>(GetGameInstance());
 }
 
 bool AGirlSaviorCombatEncounter::IsOutcomeVisible() const
 {
-    return (RunState == EGirlSaviorRunState::Defeated || RunState == EGirlSaviorRunState::Succeeded)
+    return (RunState == EGirlSaviorRunState::Defeated || RunState == EGirlSaviorRunState::Succeeded
+        || RunState == EGirlSaviorRunState::Recovery)
         && GetWorld()->GetTimeSeconds() >= OutcomeVisibleAt;
 }
 
 bool AGirlSaviorCombatEncounter::Retry()
 {
-    if (bRetryRequested || !IsOutcomeVisible())
+    if (bCampOrigin || bRetryRequested || !IsOutcomeVisible())
     {
         return false;
     }
     bRetryRequested = true;
     UGameplayStatics::OpenLevel(this, FName(*UGameplayStatics::GetCurrentLevelName(this)));
     return true;
+}
+
+// Only the trusted route instance can return to its recorded Camp.
+bool AGirlSaviorCombatEncounter::CanReturnToCamp() const
+{
+    const auto* Session = GetExpeditionSession();
+    return bCampOrigin && IsOutcomeVisible() && Session && Session->CanReturn(*GetWorld());
+}
+
+bool AGirlSaviorCombatEncounter::ReturnToCamp(FText& OutError)
+{
+    auto* Session = GetExpeditionSession();
+    if (!IsOutcomeVisible() || !bCampOrigin || !Session)
+    {
+        OutError = LOCTEXT("ReturnUnavailable", "Возвращение в лагерь недоступно.");
+        return false;
+    }
+    return Session->RequestReturn(*GetWorld(), OutError);
 }
 
 void AGirlSaviorCombatEncounter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -581,3 +748,5 @@ void AGirlSaviorCombatEncounter::EndPlay(const EEndPlayReason::Type EndPlayReaso
     DangerousAttackHolder.Reset();
     Super::EndPlay(EndPlayReason);
 }
+
+#undef LOCTEXT_NAMESPACE

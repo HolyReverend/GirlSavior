@@ -79,7 +79,9 @@ class GIRLSAVIOR_API UGirlSaviorCombatOutcomeWidget : public UUserWidget
 
 public:
     void ShowDeathNotice(const FText& Cause);
-    void ShowResult(bool bDefeated, const FText& Cause);
+    void ShowResult(bool bDefeated, const FText& Cause, const FText& Action);
+    void ShowRecovery(const FText& Message, const FText& Action);
+    void SetActionFailure(const FText& Message);
     void ClearResult();
     UButton* GetRetryButton() const { return RetryButton; }
 
@@ -94,6 +96,8 @@ public:
 
     UFUNCTION(BlueprintPure, Category = "Combat HUD")
     FText GetDisplayedCause() const;
+    FText GetDisplayedActionLabel() const;
+    FText GetActionStatus() const;
 
     FSimpleMulticastDelegate OnRetryRequested;
 
@@ -103,6 +107,7 @@ protected:
 private:
     UFUNCTION()
     void HandleRetryClicked();
+    void PresentResult(const FText& Title, const FText& Detail, const FText& Action);
 
     UPROPERTY(Transient)
     TObjectPtr<UBorder> DeathNotice;
@@ -121,6 +126,12 @@ private:
 
     UPROPERTY(Transient)
     TObjectPtr<UTextBlock> ResultCause;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UTextBlock> ResultActionStatus;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UTextBlock> ResultActionLabel;
 
     UPROPERTY(Transient)
     TObjectPtr<UButton> RetryButton;

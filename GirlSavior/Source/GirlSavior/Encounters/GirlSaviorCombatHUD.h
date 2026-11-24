@@ -46,6 +46,8 @@ private:
     void CacheDashDeadline();
     void RefreshDash();
     void RefreshOutcome();
+    void FocusOutcome();
+    void HandleBarrierChanged();
     void HandleRunStateChanged(EGirlSaviorRunState State);
     void HandleRetry();
 
