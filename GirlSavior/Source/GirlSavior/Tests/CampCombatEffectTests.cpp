@@ -1,12 +1,12 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Characters/GirlSaviorCharacter.h"
-#include "Combat/GirlSaviorCombatPistolSettings.h"
 #include "Combat/GirlSaviorDamageReceiverComponent.h"
 #include "Combat/GirlSaviorFireComponent.h"
 #include "Combat/GirlSaviorVitalsSettings.h"
 #include "Enemies/GirlSaviorEnemyCharacter.h"
 #include "Enemies/GirlSaviorEnemyDefinition.h"
+#include "Engine/DataTable.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Misc/AutomationTest.h"
@@ -37,8 +37,10 @@ bool FGirlSaviorCampSupportMechanicsTest::RunTest(const FString& Parameters)
     const auto* Liora = LoadAbility(TEXT("DA_Support_StaticTrace"));
     const auto* Ida = LoadAbility(TEXT("DA_Support_MechanismOverdrive"));
     const auto* Saira = LoadAbility(TEXT("DA_Support_TravelersBarrier"));
+    const auto* WeaponTable = LoadObject<UDataTable>(nullptr,
+        TEXT("/Game/Data/DataTables/Weapons/DT_Weapons.DT_Weapons"));
     if (!TestNotNull(TEXT("Liora definition"), Liora) || !TestNotNull(TEXT("Ida definition"), Ida)
-        || !TestNotNull(TEXT("Saira definition"), Saira))
+        || !TestNotNull(TEXT("Saira definition"), Saira) || !TestNotNull(TEXT("Saved weapon table"), WeaponTable))
     {
         return false;
     }
@@ -64,13 +66,17 @@ bool FGirlSaviorCampSupportMechanicsTest::RunTest(const FString& Parameters)
             return false;
         }
         auto* Fire = Hero->GetFireComponent();
-        Fire->CombatPistol = NewObject<UGirlSaviorCombatPistolSettings>(Hero);
+        FText Error;
+        if (!TestTrue(TEXT("Configure the saved pistol row"), Fire->ConfigurePistol(*WeaponTable, Error)))
+        {
+            AddError(Error.ToString());
+            return false;
+        }
         auto* Receiver = Hero->GetDamageReceiver();
         FGirlSaviorVitals Vitals;
         Vitals.InitialBarrier = Pair[0] == Liora ? 0.f : 4.f;
         TestTrue(TEXT("Initialize fresh hero with prototype vitals"), Receiver->InitializeVitals(Vitals, EGirlSaviorFaction::Hero));
         auto* Run = NewObject<UGirlSaviorSupportRun>();
-        FText Error;
         if (!TestTrue(TEXT("Configure and attach the authored pair"), Run->Configure(Pair, Error) && Run->Attach(*Hero, Error)))
         {
             AddError(Error.ToString());
@@ -90,19 +96,38 @@ bool FGirlSaviorCampSupportMechanicsTest::RunTest(const FString& Parameters)
         TestFalse(TEXT("A nonfinite effective firing rate is rejected"),
             Fire->SetSupportRateMultiplier(std::numeric_limits<float>::max()));
 
-        FGirlSaviorDamageResult PistolHit;
-        PistolHit.Spec.SourceFaction = EGirlSaviorFaction::Hero;
-        PistolHit.Spec.SourceId = TEXT("Hero.Pistol");
-        PistolHit.Outcome = EGirlSaviorDamageOutcome::Applied;
-        Run->NotifyHeroWeaponDamage(*Enemy, PistolHit);
-        TestEqual(TEXT("A zero-loss result leaves the enemy speed alone"), Enemy->GetCharacterMovement()->MaxWalkSpeed, BaseWalk);
-        PistolHit.HealthLost = 1.0;
-        PistolHit.bKilled = true;
-        Run->NotifyHeroWeaponDamage(*Enemy, PistolHit);
+        FGirlSaviorDamageResult WeaponHit;
+        WeaponHit.Spec.SourceFaction = EGirlSaviorFaction::Hero;
+        WeaponHit.Spec.SourceId = TEXT("Hero.Pistol");
+        WeaponHit.Outcome = EGirlSaviorDamageOutcome::Applied;
+        WeaponHit.HealthLost = 1.0;
+        Run->NotifyHeroWeaponDamage(*Enemy, WeaponHit);
+        TestEqual(TEXT("A legacy pistol source string alone does not trigger support"),
+            Enemy->GetCharacterMovement()->MaxWalkSpeed, BaseWalk);
+        WeaponHit.Spec.SourceId = TEXT("Test.HeroWeapon");
+        WeaponHit.Spec.WeaponId = TEXT("AssaultRifle");
+        WeaponHit.Spec.ShotGroupId = 1;
+        WeaponHit.Spec.Delivery = EGirlSaviorDamageDelivery::Area;
+        Run->NotifyHeroWeaponDamage(*Enemy, WeaponHit);
+        TestEqual(TEXT("A tagged area effect does not trigger weapon support"),
+            Enemy->GetCharacterMovement()->MaxWalkSpeed, BaseWalk);
+        WeaponHit.Spec.Delivery = EGirlSaviorDamageDelivery::DirectProjectile;
+        WeaponHit.Spec.SourceFaction = EGirlSaviorFaction::Enemy;
+        Run->NotifyHeroWeaponDamage(*Enemy, WeaponHit);
+        TestEqual(TEXT("A tagged enemy projectile does not trigger hero weapon support"),
+            Enemy->GetCharacterMovement()->MaxWalkSpeed, BaseWalk);
+        WeaponHit.Spec.SourceFaction = EGirlSaviorFaction::Hero;
+        WeaponHit.HealthLost = 0.0;
+        Run->NotifyHeroWeaponDamage(*Enemy, WeaponHit);
+        TestEqual(TEXT("A tagged zero-loss result leaves the enemy speed alone"),
+            Enemy->GetCharacterMovement()->MaxWalkSpeed, BaseWalk);
+        WeaponHit.HealthLost = 1.0;
+        WeaponHit.bKilled = true;
+        Run->NotifyHeroWeaponDamage(*Enemy, WeaponHit);
         TestEqual(TEXT("A lethal result leaves the enemy speed alone"), Enemy->GetCharacterMovement()->MaxWalkSpeed, BaseWalk);
-        PistolHit.bKilled = false;
-        Run->NotifyHeroWeaponDamage(*Enemy, PistolHit);
-        Run->NotifyHeroWeaponDamage(*Enemy, PistolHit);
+        WeaponHit.bKilled = false;
+        Run->NotifyHeroWeaponDamage(*Enemy, WeaponHit);
+        Run->NotifyHeroWeaponDamage(*Enemy, WeaponHit);
         TestEqual(TEXT("Liora applies the selected pair's slow from base on repeated hits"),
             Enemy->GetCharacterMovement()->MaxWalkSpeed, bLiora ? BaseWalk * 0.9f : BaseWalk);
         Run->ForgetEnemy(*Enemy);
@@ -119,7 +144,7 @@ bool FGirlSaviorCampSupportMechanicsTest::RunTest(const FString& Parameters)
             Receiver->RefillSupportBarrier();
             TestTrue(TEXT("A refill restores the support charge"), FMath::IsNearlyEqual(Receiver->GetBarrier(), InitialTotal, 1.e-5));
             Run->CloseDispatch();
-            Run->NotifyHeroWeaponDamage(*Enemy, PistolHit);
+            Run->NotifyHeroWeaponDamage(*Enemy, WeaponHit);
             TestEqual(TEXT("A terminal run cannot slow a new victim"), Enemy->GetCharacterMovement()->MaxWalkSpeed, BaseWalk);
         }
         Run->Detach();

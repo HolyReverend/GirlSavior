@@ -8,12 +8,15 @@
 #include "Components/CanvasPanelSlot.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
+#include "Components/Image.h"
 #include "Components/ProgressBar.h"
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "Engine/Texture2D.h"
 #include "Styling/CoreStyle.h"
+#include "Weapons/GirlSaviorWeaponDefinition.h"
 
 #define LOCTEXT_NAMESPACE "GirlSaviorCombatWidgets"
 
@@ -106,8 +109,84 @@ TSharedRef<SWidget> UGirlSaviorCombatVitalsWidget::RebuildWidget()
         DashText = MakeText(*WidgetTree, DashStatus, 12, DashColor);
         Column->AddChildToVerticalBox(DashText.Get())->SetPadding(FMargin(0, 10, 0, 0));
         RefreshVitals();
+        BuildWeaponStrip(*Root);
     }
     return Super::RebuildWidget();
+}
+
+void UGirlSaviorCombatVitalsWidget::BuildWeaponStrip(UCanvasPanel& Root)
+{
+    WeaponStrip = WidgetTree->ConstructWidget<UHorizontalBox>();
+    PlacePanel(Root, WeaponStrip.Get(), FVector2D(0, 1), FVector2D(0, 1))->SetPosition(FVector2D(18, -16));
+    for (int32 Index = 0; Index < FGirlSaviorWeaponLoadout::SlotCount; ++Index)
+    {
+        auto* Frame = MakePanel(*WidgetTree, FMargin(2));
+        auto* Card = MakePanel(*WidgetTree, FMargin(7, 4), FLinearColor(0.026f, 0.034f, 0.043f, 1.f));
+        auto* Width = WidgetTree->ConstructWidget<USizeBox>();
+        Width->SetWidthOverride(110.f);
+        Width->SetHeightOverride(48.f);
+        Card->AddChild(Width);
+        Frame->AddChild(Card);
+        WeaponStrip->AddChildToHorizontalBox(Frame)->SetPadding(FMargin(Index == 0 ? 0 : 6, 0, 0, 0));
+        WeaponSlotFrames.Add(Frame);
+
+        auto* Column = WidgetTree->ConstructWidget<UVerticalBox>();
+        Width->AddChild(Column);
+        auto* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
+        Column->AddChildToVerticalBox(Row);
+        auto* Number = Row->AddChildToHorizontalBox(MakeText(*WidgetTree, FText::AsNumber(Index + 1), 13, TextColor, true));
+        Number->SetVerticalAlignment(VAlign_Center);
+        Number->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+        auto* Marker = MakeText(*WidgetTree, LOCTEXT("WeaponActiveMarker", "◆"), 10, WarmColor);
+        Row->AddChildToHorizontalBox(Marker)->SetVerticalAlignment(VAlign_Center);
+        WeaponActiveMarkers.Add(Marker);
+
+        auto* IconBox = WidgetTree->ConstructWidget<USizeBox>();
+        IconBox->SetWidthOverride(20.f);
+        IconBox->SetHeightOverride(20.f);
+        auto* Icon = WidgetTree->ConstructWidget<UImage>();
+        IconBox->AddChild(Icon);
+        auto* IconSlot = Row->AddChildToHorizontalBox(IconBox);
+        IconSlot->SetVerticalAlignment(VAlign_Center);
+        WeaponSlotIcons.Add(Icon);
+
+        auto* Name = MakeText(*WidgetTree, FText::GetEmpty(), 11);
+        Name->SetAutoWrapText(true);
+        Column->AddChildToVerticalBox(Name)->SetPadding(FMargin(0, 2, 0, 0));
+        WeaponSlotNames.Add(Name);
+    }
+    RefreshWeaponStrip();
+}
+
+// The same snapshot prepares the initial HUD and every subsequent switch.
+void UGirlSaviorCombatVitalsWidget::SetWeaponView(const FGirlSaviorWeaponView& InView)
+{
+    DisplayedWeaponView = InView;
+    RefreshWeaponStrip();
+}
+
+void UGirlSaviorCombatVitalsWidget::RefreshWeaponStrip()
+{
+    if (!WeaponStrip)
+    {
+        return;
+    }
+    const bool bConfigured = DisplayedWeaponView.Slots.Num() == FGirlSaviorWeaponLoadout::SlotCount
+        && DisplayedWeaponView.Slots.IsValidIndex(DisplayedWeaponView.ActiveIndex);
+    WeaponStrip->SetVisibility(bConfigured ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+    for (int32 Index = 0; Index < WeaponSlotFrames.Num(); ++Index)
+    {
+        const auto* WeaponSlot = bConfigured ? &DisplayedWeaponView.Slots[Index] : nullptr;
+        const bool bFilled = WeaponSlot && !WeaponSlot->WeaponId.IsNone();
+        const bool bActive = bFilled && Index == DisplayedWeaponView.ActiveIndex;
+        WeaponSlotFrames[Index]->SetBrushColor(bActive ? WarmColor : FLinearColor(0.12f, 0.16f, 0.20f));
+        WeaponActiveMarkers[Index]->SetVisibility(bActive ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+        WeaponSlotNames[Index]->SetText(bFilled ? WeaponSlot->DisplayName : LOCTEXT("WeaponSlotEmpty", "Пусто"));
+        WeaponSlotNames[Index]->SetColorAndOpacity(bFilled ? TextColor : MutedColor);
+        UTexture2D* Icon = bFilled ? WeaponSlot->Icon.Get() : nullptr;
+        WeaponSlotIcons[Index]->SetBrushFromTexture(Icon);
+        WeaponSlotIcons[Index]->SetVisibility(Icon ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+    }
 }
 
 void UGirlSaviorCombatVitalsWidget::SetVitals(double Health, double HealthLimit, double Barrier, double InitialBarrier)

@@ -1,5 +1,6 @@
 #include "Feedback/GirlSaviorCombatFeedbackPresenter.h"
 
+#include "Characters/GirlSaviorAimComponent.h"
 #include "Characters/GirlSaviorCharacter.h"
 #include "Characters/GirlSaviorCharacterMovementComponent.h"
 #include "Combat/GirlSaviorCombatChannels.h"
@@ -25,7 +26,8 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Sound/SoundAttenuation.h"
 #include "Sound/SoundBase.h"
-#include "UObject/ConstructorHelpers.h"
+#include "Sound/SoundConcurrency.h"
+#include "Weapons/GirlSaviorFirearm.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGirlSaviorFeedback, Log, All);
 
@@ -72,8 +74,6 @@ AGirlSaviorCombatFeedbackPresenter::AGirlSaviorCombatFeedbackPresenter()
     Lines->SetCanEverAffectNavigation(false);
     Lines->PrimaryComponentTick.bStartWithTickEnabled = false;
 
-    static ConstructorHelpers::FObjectFinder<UStaticMesh> Box(TEXT("/Engine/BasicShapes/Cube.Cube"));
-    WeaponMesh = Box.Object;
 }
 
 bool AGirlSaviorCombatFeedbackPresenter::HasWarningClass() const
@@ -145,7 +145,6 @@ void AGirlSaviorCombatFeedbackPresenter::HandleHeroChanged(AGirlSaviorCharacter*
     }
     UMeshComponent* Mesh = FindHeroBody(*Pawn);
     BindBody(*Pawn, Mesh, true, ERole::Pursuer);
-    Pawn->GetFireComponent()->OnCombatShotCue.AddUObject(this, &ThisClass::HandleShot);
     if (Mesh)
     {
         // The lamp's own holder should not project a black disk around the player's feet.
@@ -168,18 +167,17 @@ void AGirlSaviorCombatFeedbackPresenter::HandleHeroChanged(AGirlSaviorCharacter*
     Torch->SetRelativeLocation(TorchOffset);
     Torch->RegisterComponent();
 
-    if (WeaponMesh)
-    {
-        Weapon = NewObject<UStaticMeshComponent>(this);
-        Weapon->SetStaticMesh(WeaponMesh);
-        Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        Weapon->SetCanEverAffectNavigation(false);
-        Weapon->SetCastShadow(false);
-        Weapon->SetRelativeScale3D(FVector(0.42, 0.10, 0.14));
-        Weapon->SetupAttachment(Pawn->GetRootComponent());
-        Weapon->RegisterComponent();
-        UpdateWeapon(GetWorld()->GetTimeSeconds());
-    }
+    Weapon = NewObject<UStaticMeshComponent>(this);
+    Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Weapon->SetGenerateOverlapEvents(false);
+    Weapon->SetCanEverAffectNavigation(false);
+    Weapon->SetCastShadow(false);
+    Weapon->SetupAttachment(Pawn->GetRootComponent());
+    Weapon->RegisterComponent();
+    auto* Fire = Pawn->GetFireComponent();
+    HandleWeaponChanged(Fire->GetActiveWeaponSlot());
+    Fire->OnWeaponChanged.AddUObject(this, &ThisClass::HandleWeaponChanged);
+    Fire->OnWeaponShot.AddUObject(this, &ThisClass::HandleShot);
     ConfigureHUD();
 }
 
@@ -203,7 +201,8 @@ void AGirlSaviorCombatFeedbackPresenter::UnbindHero()
     ListeningController.Reset();
     if (AGirlSaviorCharacter* Pawn = Hero.Get())
     {
-        Pawn->GetFireComponent()->OnCombatShotCue.RemoveAll(this);
+        Pawn->GetFireComponent()->OnWeaponChanged.RemoveAll(this);
+        Pawn->GetFireComponent()->OnWeaponShot.RemoveAll(this);
         UnbindBody(*Pawn);
     }
     if (IsValid(Torch))
@@ -289,9 +288,51 @@ void AGirlSaviorCombatFeedbackPresenter::BindProjectile(AGirlSaviorTestProjectil
     if (!Projectiles.Contains(&Projectile))
     {
         Projectiles.Add(&Projectile);
+        if (!Projectile.GetWeaponId().IsNone())
+        {
+            RegisterShotGroup(Projectile.GetShotGroupId(), Projectile.GetCombatLifetimeSeconds());
+        }
         Projectile.OnResolvedImpact.AddUniqueDynamic(this, &ThisClass::HandleProjectileImpact);
         Projectile.OnCompleted.AddUObject(this, &ThisClass::HandleProjectileEnd);
     }
+}
+
+// Registration happens before any synchronous cover impact. Keep the group until its time limit.
+void AGirlSaviorCombatFeedbackPresenter::RegisterShotGroup(int64 ShotGroupId, float SafetyLifetime)
+{
+    if (ShotGroupId > 0)
+    {
+        auto& Group = ShotGroups.FindOrAdd(ShotGroupId);
+        Group.ExpiresAt = FMath::Max(Group.ExpiresAt, GetWorld()->GetTimeSeconds() + SafetyLifetime);
+    }
+}
+
+void AGirlSaviorCombatFeedbackPresenter::PruneShotGroups(double Now)
+{
+    for (auto It = ShotGroups.CreateIterator(); It; ++It)
+    {
+        if (It.Value().ExpiresAt <= Now)
+        {
+            It.RemoveCurrent();
+        }
+    }
+}
+
+// A pellet contributes at most barrier, health or lethal and one blocking contact.
+bool AGirlSaviorCombatFeedbackPresenter::ShouldPlayContact(int64 ShotGroupId, const FContactCue& Contact)
+{
+    auto* Group = ShotGroups.Find(ShotGroupId);
+    if (!Group)
+    {
+        return true;
+    }
+    constexpr int32 MaxContactCues = 15;
+    if (Group->Contacts.Contains(Contact) || Group->Contacts.Num() >= MaxContactCues)
+    {
+        return false;
+    }
+    Group->Contacts.Add(Contact);
+    return true;
 }
 
 void AGirlSaviorCombatFeedbackPresenter::HandleProjectileImpact(const FGirlSaviorProjectileImpact& Impact)
@@ -300,6 +341,21 @@ void AGirlSaviorCombatFeedbackPresenter::HandleProjectileImpact(const FGirlSavio
     {
         return; // The receiver presents the committed target result once.
     }
+    const ECue Kind = Impact.bWardContact ? ECue::Ward : ECue::Geometry;
+    const EPhysicalSurface Surface = Impact.bWardContact ? SurfaceType_Default : Impact.SurfaceType.GetValue();
+    UObject* Blocker = Impact.BlockingComponent.Get();
+    if (!Blocker)
+    {
+        Blocker = Impact.BlockingActor.Get();
+    }
+    constexpr double CellSize = 24.0;
+    const FVector Point = Impact.GeometryKeyPoint / CellSize;
+    const FIntVector Cell = Blocker ? FIntVector::ZeroValue
+        : FIntVector(FMath::FloorToInt32(Point.X), FMath::FloorToInt32(Point.Y), FMath::FloorToInt32(Point.Z));
+    if (!Impact.WeaponId.IsNone() && !ShouldPlayContact(Impact.ShotGroupId, {Blocker, Cell, Surface, Kind}))
+    {
+        return;
+    }
     if (Impact.bWardContact)
     {
         PlayCue(ECue::Ward, SafeWard, Impact.Point);
@@ -307,8 +363,27 @@ void AGirlSaviorCombatFeedbackPresenter::HandleProjectileImpact(const FGirlSavio
     }
     else
     {
-        PlayCue(ECue::Geometry, GeometryImpact, Impact.Point);
-        AddBurst(Impact.Point, Impact.Normal, FLinearColor(0.85f, 0.51f, 0.29f), 22.f, 5, 0.18f);
+        USoundBase* Sound = nullptr;
+        FLinearColor Color(0.85f, 0.51f, 0.29f);
+        switch (Surface)
+        {
+        case SurfaceType1:
+            Sound = GeometryStoneImpact;
+            Color = FLinearColor(0.66f, 0.63f, 0.57f);
+            break;
+        case SurfaceType2:
+            Sound = GeometryMetalImpact;
+            Color = FLinearColor(1.f, 0.83f, 0.43f);
+            break;
+        case SurfaceType3:
+            Sound = GeometryWoodImpact;
+            Color = FLinearColor(0.65f, 0.36f, 0.16f);
+            break;
+        default:
+            break;
+        }
+        PlayCue(ECue::Geometry, Sound ? Sound : GeometryImpact.Get(), Impact.Point);
+        AddBurst(Impact.Point, Impact.Normal, Color, 22.f, 5, 0.18f);
     }
 }
 
@@ -327,9 +402,12 @@ void AGirlSaviorCombatFeedbackPresenter::HandleProjectileEnd(AGirlSaviorTestProj
     }
     const bool bEnemy = Projectile->GetSourceFaction() == EGirlSaviorFaction::Enemy;
     const FVector Head = Projectile->GetActorLocation();
-    const double TrailLength = FMath::Min(Projectile->GetDistanceTraveled(), bEnemy ? 82.0 : 68.0);
+    const auto& Trail = Projectile->GetTrail();
+    const double TrailLength = FMath::Min(Projectile->GetDistanceTraveled(),
+        Trail ? double(Trail->Length) : (bEnemy ? 82.0 : 68.0));
     AddStroke(Head - Projectile->GetTravelDirection() * TrailLength, Head,
-        bEnemy ? EnemyShotColor : ShotColor, bEnemy ? 5.f : 2.f, 0.15f);
+        Trail ? Trail->Color : (bEnemy ? EnemyShotColor : ShotColor),
+        Trail ? Trail->Width : (bEnemy ? 5.f : 2.f), Trail ? Trail->FadeSeconds : 0.15f);
 }
 
 // Render barrier and health from the same committed result, with lethal feedback taking precedence.
@@ -339,9 +417,13 @@ void AGirlSaviorCombatFeedbackPresenter::HandleDamage(AActor& Target, const FGir
     {
         return;
     }
-    if (Result.BarrierLost > 0.0)
+    const int64 ShotGroupId = Result.Spec.SourceFaction == EGirlSaviorFaction::Hero && !Result.Spec.WeaponId.IsNone()
+        ? Result.Spec.ShotGroupId : 0;
+    // A discharge emits one barrier reaction per target even if a later pellet breaks it.
+    if (Result.BarrierLost > 0.0 && ShouldPlayContact(ShotGroupId,
+        {&Target, FIntVector::ZeroValue, SurfaceType_Default, ECue::BarrierSustain}))
     {
-        AddBarrier(Target, Result.bBarrierBroken);
+        AddBarrier(Target, Result.bBarrierBroken, Result.bKilled);
     }
     const FVector Position = Result.Spec.bHasContact ? Result.Spec.Contact : Target.GetActorLocation();
     const FVector Normal = Result.Spec.bHasContact ? Result.Spec.ContactNormal : FVector::UpVector;
@@ -353,14 +435,19 @@ void AGirlSaviorCombatFeedbackPresenter::HandleDamage(AActor& Target, const FGir
             Pose->FallStart = Pose->Mesh.IsValid() ? Pose->Mesh->GetRelativeTransform() : Pose->Rest;
         }
         const bool bHero = &Target == Hero.Get();
+        const ECue Kind = bHero ? ECue::HeroDefeat : ECue::EnemyDeath;
         if (bHero && Weapon)
         {
             Weapon->SetVisibility(false);
         }
-        PlayCue(bHero ? ECue::HeroDefeat : ECue::EnemyDeath, bHero ? HeroDefeat.Get() : EnemyDeath.Get(), Position, bHero);
-        AddBurst(Position, Normal, FLinearColor(1.f, 0.37f, 0.19f), 43.f, 8, 0.32f);
+        if (ShouldPlayContact(ShotGroupId, {&Target, FIntVector::ZeroValue, SurfaceType_Default, Kind}))
+        {
+            PlayCue(Kind, bHero ? HeroDefeat.Get() : EnemyDeath.Get(), Position, bHero);
+            AddBurst(Position, Normal, FLinearColor(1.f, 0.37f, 0.19f), 43.f, 8, 0.32f);
+        }
     }
-    else if (Result.HealthLost > 0.0)
+    else if (Result.HealthLost > 0.0
+        && ShouldPlayContact(ShotGroupId, {&Target, FIntVector::ZeroValue, SurfaceType_Default, ECue::HealthHit}))
     {
         PlayCue(ECue::HealthHit, HealthHit, Position);
         AddBurst(Position, Normal, FLinearColor(1.f, 0.20f, 0.16f), 26.f, 4, 0.15f, &Target);
@@ -489,7 +576,8 @@ void AGirlSaviorCombatFeedbackPresenter::PlayCue(ECue Cue, USoundBase* Sound, co
         return;
     }
     auto* Audio = bForeground ? UGameplayStatics::SpawnSound2D(this, Sound, 0.85f)
-        : UGameplayStatics::SpawnSoundAtLocation(this, Sound, Position, FRotator::ZeroRotator, 0.75f, 1.f, 0.f, CueAttenuation);
+        : UGameplayStatics::SpawnSoundAtLocation(this, Sound, Position, FRotator::ZeroRotator, 0.75f, 1.f, 0.f,
+            CueAttenuation, Cue == ECue::Muzzle ? ShotConcurrency.Get() : nullptr);
     if (Audio)
     {
         Sounds.Add(Audio);
@@ -507,7 +595,7 @@ void AGirlSaviorCombatFeedbackPresenter::AddStroke(const FVector& From, const FV
 }
 
 void AGirlSaviorCombatFeedbackPresenter::AddBurst(const FVector& Center, const FVector& Normal,
-    const FLinearColor& Color, float Radius, int32 Count, float Lifetime, AActor* Anchor)
+    const FLinearColor& Color, float Radius, int32 Count, float Lifetime, AActor* Anchor, bool bClipToCover)
 {
     const FVector Axis = Normal.GetSafeNormal(UE_SMALL_NUMBER, FVector::UpVector);
     FVector Right, Up;
@@ -516,13 +604,15 @@ void AGirlSaviorCombatFeedbackPresenter::AddBurst(const FVector& Center, const F
     {
         const double Angle = Index * UE_TWO_PI / Count;
         const FVector Radial = FMath::Cos(Angle) * Right + FMath::Sin(Angle) * Up;
-        const FVector Start = Center + Axis * 3 + Radial * 6;
+        const FVector DesiredStart = Center + Axis * 3 + Radial * 6;
+        const FVector Start = bClipToCover ? ClipMuzzle(Center, DesiredStart) : DesiredStart;
         const FVector End = Start + Radial * Radius + Axis * (4 + Index % 3 * 3);
-        AddStroke(Start, End, Color, 3.f, Lifetime, Radial * 22 + Axis * 12, Anchor);
+        AddStroke(Start, bClipToCover ? ClipMuzzle(Start, End) : End, Color, 3.f, Lifetime,
+            bClipToCover ? FVector::ZeroVector : Radial * 22 + Axis * 12, Anchor);
     }
 }
 
-void AGirlSaviorCombatFeedbackPresenter::AddBarrier(AActor& Target, bool bBroken)
+void AGirlSaviorCombatFeedbackPresenter::AddBarrier(AActor& Target, bool bBroken, bool bFatal)
 {
     const auto* Capsule = Target.FindComponentByClass<UCapsuleComponent>();
     const FVector Foot = Target.GetActorLocation()
@@ -539,7 +629,6 @@ void AGirlSaviorCombatFeedbackPresenter::AddBarrier(AActor& Target, bool bBroken
             bBroken ? 0.32f : 0.20f, bBroken ? Radial * 110 + FVector(0, 0, 35) : FVector::ZeroVector,
             bBroken ? nullptr : &Target);
     }
-    const bool bFatal = Target.FindComponentByClass<UGirlSaviorDamageReceiverComponent>()->GetHealth() <= 0.0;
     PlayCue(bBroken ? ECue::BarrierBreak : ECue::BarrierSustain,
         bFatal ? nullptr : bBroken ? BarrierBreak.Get() : BarrierSustain.Get(), Foot);
 }
@@ -556,14 +645,47 @@ FVector AGirlSaviorCombatFeedbackPresenter::ClipMuzzle(const FVector& Origin, co
     return Desired;
 }
 
-void AGirlSaviorCombatFeedbackPresenter::HandleShot(FVector Position, FVector Direction)
+// A slot switch updates the cosmetic mount and cancels kick without emitting a shot.
+void AGirlSaviorCombatFeedbackPresenter::HandleWeaponChanged(int32)
 {
-    LastRecoil = GetWorld()->GetTimeSeconds();
-    const FVector Muzzle = ClipMuzzle(Position, Position + Direction * 47 + FVector(0, 0, 11));
-    const FVector FlashEnd = ClipMuzzle(Muzzle, Muzzle + Direction * 23);
-    AddBurst(Muzzle, -Direction, ShotColor, 9.f, 5, 0.075f);
-    AddStroke(Muzzle, FlashEnd, ShotColor, 6.f, 0.075f);
-    PlayCue(ECue::Muzzle, PistolShot, Muzzle);
+    LastRecoil = -1.0;
+    if (!Hero.IsValid() || !Weapon)
+    {
+        return;
+    }
+    const auto* Definition = Hero->GetFireComponent()->GetConfiguredWeaponDefinition();
+    Weapon->SetStaticMesh(Definition ? Definition->Presentation.HeldMesh.Get() : nullptr);
+    Weapon->SetVisibility(Definition && Definition->Presentation.HeldMesh && Hero->GetDamageReceiver()->IsAlive());
+    if (Definition)
+    {
+        Weapon->SetWorldScale3D(Definition->Presentation.HeldMeshScale);
+        UpdateWeapon(GetWorld()->GetTimeSeconds());
+    }
+}
+
+// Consume one accepted discharge using its immutable presentation values.
+void AGirlSaviorCombatFeedbackPresenter::HandleShot(const FGirlSaviorWeaponShotCue& Cue)
+{
+    const auto& Presentation = Cue.Presentation;
+    if (Hero.IsValid())
+    {
+        const auto* Fire = Hero->GetFireComponent();
+        if (Fire->GetWeaponSlotId(Fire->GetActiveWeaponSlot()) == Cue.WeaponId)
+        {
+            LastRecoil = GetWorld()->GetTimeSeconds();
+            KickDistance = Presentation.KickDistance;
+            KickRecoverSeconds = Presentation.KickRecoverSeconds;
+        }
+    }
+    const FVector Direction = Cue.AimDirection.GetSafeNormal2D(UE_SMALL_NUMBER, FVector::ForwardVector);
+    const FRotator Rotation = Direction.Rotation();
+    const FVector Offset = Presentation.MuzzleOffset.IsNearlyZero() ? FVector(47, 0, 11) : Presentation.MuzzleOffset;
+    const FVector Muzzle = ClipMuzzle(Cue.Origin, Cue.Origin + Rotation.RotateVector(Offset));
+    const float Scale = Presentation.FlashScale;
+    const FVector FlashEnd = ClipMuzzle(Muzzle, Muzzle + Direction * (23 * Scale));
+    AddBurst(Muzzle, -Direction, ShotColor, 9.f * Scale, 5, Presentation.FlashSeconds, nullptr, true);
+    AddStroke(Muzzle, FlashEnd, ShotColor, 6.f * Scale, Presentation.FlashSeconds);
+    PlayCue(ECue::Muzzle, Presentation.ShotSound, Muzzle);
 }
 
 void AGirlSaviorCombatFeedbackPresenter::UpdateWeapon(double Now)
@@ -572,11 +694,13 @@ void AGirlSaviorCombatFeedbackPresenter::UpdateWeapon(double Now)
     {
         return;
     }
-    const double Kick = LastRecoil >= 0.0 ? 8.0 * FMath::Clamp(1.0 - (Now - LastRecoil) / 0.12, 0.0, 1.0) : 0.0;
-    const FVector Center = Hero->GetActorLocation();
-    const FVector Target = Center + Hero->GetActorForwardVector() * (29.0 - Kick)
-        + Hero->GetActorRightVector() * 17 + FVector(0, 0, 11);
-    Weapon->SetWorldLocation(ClipMuzzle(Center, Target));
+    const double Kick = LastRecoil >= 0.0 && KickRecoverSeconds > 0.f
+        ? KickDistance * FMath::Clamp(1.0 - (Now - LastRecoil) / KickRecoverSeconds, 0.0, 1.0) : 0.0;
+    const FVector Center = Hero->GetCapsuleComponent()->GetComponentLocation();
+    const FVector Aim = Hero->GetAimComponent()->GetAimDirection();
+    const FRotator Rotation = Aim.GetSafeNormal2D(UE_SMALL_NUMBER, Hero->GetActorForwardVector()).Rotation();
+    const FVector Target = Center + Rotation.RotateVector(FVector(29.0 - Kick, 17, 11));
+    Weapon->SetWorldLocationAndRotation(ClipMuzzle(Center, Target), Rotation);
 }
 
 void AGirlSaviorCombatFeedbackPresenter::DrawCosmetics(double Now)
@@ -703,6 +827,7 @@ void AGirlSaviorCombatFeedbackPresenter::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     const double Now = GetWorld()->GetTimeSeconds();
+    PruneShotGroups(Now);
     if (!ConfiguredHUD.IsValid())
     {
         ConfigureHUD();
@@ -767,6 +892,7 @@ void AGirlSaviorCombatFeedbackPresenter::EndPlay(const EEndPlayReason::Type EndP
         }
     }
     ClearWarnings();
+    ShotGroups.Reset();
     Lines->Flush();
     Super::EndPlay(EndPlayReason);
 }

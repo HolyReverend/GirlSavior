@@ -2,6 +2,8 @@
 
 [Architecture](WeaponArchitecture.md) · [Data and combat](WeaponDataAndCombat.md) · [Expedition Board design](../../GameDesign/Mechanics/Camp/ExpeditionBoard.md)
 
+W3 implements the table editor, weapon-profile persistence and authenticated handoff. [Verified W3 results and playtest entry point](ImplementationPlan.md#w3-execution-record--2026-11-25)
+
 ## Profile and persistence
 
 Use a `UGirlSaviorWeaponProfileSubsystem` on the existing `UGameInstance`. Give it `GetConfirmedLoadout()`, `GetUnlockedWeaponIds()`, `EnsureLoaded(const UDataTable&, FText&)` and `TryConfirmLoadout(const UDataTable&, const FGirlSaviorWeaponLoadout&, FText&)`. Initialize on the first table visit or a launch from Camp, after access to the table. Put persistent state in `UGirlSaviorWeaponSaveGame`, with `SchemaVersion = 1`, a monotonically increasing `Generation`, `UnlockedWeaponIds`, and the three ordered IDs of `ConfirmedLoadout`. The new profile always has `Pistol` unlocked and slot 1 equipped. Store no runtime class, icon, map instance, or actor in the file.

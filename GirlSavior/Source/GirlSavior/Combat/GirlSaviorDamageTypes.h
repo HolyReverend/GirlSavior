@@ -53,6 +53,13 @@ struct GIRLSAVIOR_API FGirlSaviorDamageSpec
 	UPROPERTY(BlueprintReadOnly, Category = "Damage")
 	FName SourceId;
 
+	// Stable row and discharge identifiers for weapon projectiles.
+	UPROPERTY(BlueprintReadOnly, Category = "Damage")
+	FName WeaponId;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Damage")
+	int64 ShotGroupId = 0;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Damage")
 	FText Cause;
 

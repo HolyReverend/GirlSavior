@@ -7,6 +7,7 @@
 #include "GirlSaviorExpeditionSessionSubsystem.generated.h"
 
 class UGirlSaviorCampDefinition;
+class UGirlSaviorWeaponProfileSubsystem;
 struct FGirlSaviorCampPreparation;
 
 enum class EGirlSaviorExpeditionClaim : uint8
@@ -46,6 +47,7 @@ public:
     // Replace only the next dispatch in this instance to exercise failures without editing map packages.
     using FDispatchForTest = TFunction<bool(UWorld&, const TSoftObjectPtr<UWorld>&, const FString&)>;
     void SetNextDispatchForTest(FDispatchForTest Dispatch) { NextDispatchForTest = MoveTemp(Dispatch); }
+    void SetWeaponProfileForTest(UGirlSaviorWeaponProfileSubsystem* Profile);
 #endif
 
 private:
@@ -77,5 +79,6 @@ private:
 
 #if WITH_EDITOR
     FDispatchForTest NextDispatchForTest;
+    TWeakObjectPtr<UGirlSaviorWeaponProfileSubsystem> WeaponProfileForTest;
 #endif
 };

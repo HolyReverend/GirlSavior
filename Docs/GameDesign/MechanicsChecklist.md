@@ -1,6 +1,6 @@
 # Чек-лист реализации механик
 
-Состояние проекта на 23 ноября 2026 года. Статусы сверены с текущим проектом и записями приёмки на картах Demo и боевого прототипа.
+Статусы сверены с текущим проектом и записями приёмки на картах Demo и боевого прототипа. Оружие, его фидбек и слоты обновлены по результатам W4 от 27 ноября 2026 года.
 
 ## Готово
 
@@ -20,6 +20,8 @@
 - [Предупреждения об атаках и реакция героя](Mechanics/Encounters/EnemyAttackFeedback.md)
 - [Рывок персонажа](Mechanics/Player/CharacterCharge.md)
 - [Стартовый пистолет](Mechanics/Weapons/Pistol.md)
+- [Дробовик](Mechanics/Weapons/Shotgun.md) и [автоматическая винтовка](Mechanics/Weapons/AssaultRifle.md) доступны на тестовом маршруте. Сравнение их ролей и баланса остаётся в плейтесте. [GS-017](../OpenItems/GS-017-WeaponPlaytest.md)
+- [Выбор, вынос и открытие оружия](Mechanics/Weapons/Weapons.md) — Стол экспедиции сохраняет порядок слотов. Получение оружия и вынос находок будут проверяться на спасательных маршрутах. [GS-017](../OpenItems/GS-017-WeaponPlaytest.md)
 - [Боевые комнаты](Mechanics/Encounters/CombatEncounters.md)
 - [Типы обычных противников](Mechanics/Encounters/EnemyTypes.md)
 - [Волны противников](Mechanics/Encounters/EnemyWaves.md)
@@ -35,9 +37,6 @@
 
 ### Герой, оружие и бой
 
-- [Выбор, вынос и открытие оружия](Mechanics/Weapons/Weapons.md)
-- [Дробовик](Mechanics/Weapons/Shotgun.md)
-- [Автоматическая винтовка](Mechanics/Weapons/AssaultRifle.md)
 - [Элитные враги](Mechanics/Encounters/EliteEnemies.md)
 - [Облик и сигналы элитных врагов](Mechanics/Encounters/EliteEnemyPresentation.md)
 - [Эффекты усилений в бою](Mechanics/Encounters/UpgradeCombatFeedback.md)

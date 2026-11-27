@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Chaos/ChaosEngineInterface.h"
 #include "Enemies/GirlSaviorEnemyAttackComponent.h"
 #include "GameFramework/Actor.h"
 #include "GirlSaviorCombatFeedbackPresenter.generated.h"
@@ -20,11 +21,13 @@ class UMeshComponent;
 class UPointLightComponent;
 class USoundAttenuation;
 class USoundBase;
+class USoundConcurrency;
 class UStaticMesh;
 class UStaticMeshComponent;
 enum class EGirlSaviorRunState : uint8;
 struct FGirlSaviorDamageResult;
 struct FGirlSaviorProjectileImpact;
+struct FGirlSaviorWeaponShotCue;
 
 UENUM(BlueprintType)
 enum class EGirlSaviorFeedbackCue : uint8
@@ -69,7 +72,15 @@ public:
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Audio")
     TObjectPtr<USoundBase> PistolShot;
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Audio")
+    TObjectPtr<USoundConcurrency> ShotConcurrency;
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Audio")
     TObjectPtr<USoundBase> GeometryImpact;
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Audio")
+    TObjectPtr<USoundBase> GeometryStoneImpact;
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Audio")
+    TObjectPtr<USoundBase> GeometryMetalImpact;
+    UPROPERTY(EditDefaultsOnly, Category = "Combat|Audio")
+    TObjectPtr<USoundBase> GeometryWoodImpact;
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Audio")
     TObjectPtr<USoundBase> HealthHit;
     UPROPERTY(EditDefaultsOnly, Category = "Combat|Audio")
@@ -107,6 +118,26 @@ protected:
     virtual void Tick(float DeltaSeconds) override;
 
 private:
+    friend class FGirlSaviorWeaponFeedbackTest;
+
+    struct FContactCue
+    {
+        TWeakObjectPtr<UObject> Identity;
+        FIntVector Cell = FIntVector::ZeroValue;
+        EPhysicalSurface Surface = SurfaceType_Default;
+        EGirlSaviorFeedbackCue Kind = EGirlSaviorFeedbackCue::Geometry;
+
+        bool operator==(const FContactCue& Other) const
+        {
+            return Identity.HasSameIndexAndSerialNumber(Other.Identity)
+                && Cell == Other.Cell && Surface == Other.Surface && Kind == Other.Kind;
+        }
+    };
+    struct FShotGroup
+    {
+        double ExpiresAt = 0.0;
+        TArray<FContactCue, TInlineAllocator<15>> Contacts;
+    };
     struct FStroke
     {
         FVector From;
@@ -144,7 +175,11 @@ private:
     void HandleDamage(AActor& Target, const FGirlSaviorDamageResult& Result);
     void HandleAttack(AGirlSaviorEnemyCharacter& Enemy, const FGirlSaviorAttackCue& Cue);
     void HandleChargeStop(const FVector& Position, const FVector& Normal);
-    void HandleShot(FVector Position, FVector Direction);
+    void HandleShot(const FGirlSaviorWeaponShotCue& Cue);
+    void HandleWeaponChanged(int32 SlotIndex);
+    void RegisterShotGroup(int64 ShotGroupId, float SafetyLifetime);
+    void PruneShotGroups(double Now);
+    bool ShouldPlayContact(int64 ShotGroupId, const FContactCue& Contact);
     void ClearWarnings();
     void DrawCosmetics(double Now);
     void UpdateBodies(double Now, float DeltaSeconds);
@@ -153,8 +188,8 @@ private:
     void AddStroke(const FVector& From, const FVector& To, const FLinearColor& Color,
         float Width, float Lifetime, const FVector& Drift = FVector::ZeroVector, AActor* Anchor = nullptr);
     void AddBurst(const FVector& Center, const FVector& Normal, const FLinearColor& Color,
-        float Radius, int32 Count, float Lifetime, AActor* Anchor = nullptr);
-    void AddBarrier(AActor& Target, bool bBroken);
+        float Radius, int32 Count, float Lifetime, AActor* Anchor = nullptr, bool bClipToCover = false);
+    void AddBarrier(AActor& Target, bool bBroken, bool bFatal);
     FVector ClipMuzzle(const FVector& Origin, const FVector& Desired) const;
 
     UFUNCTION()
@@ -172,8 +207,6 @@ private:
     TObjectPtr<UPointLightComponent> Torch;
     UPROPERTY()
     TObjectPtr<UStaticMeshComponent> Weapon;
-    UPROPERTY()
-    TObjectPtr<UStaticMesh> WeaponMesh;
 
     TWeakObjectPtr<AGirlSaviorCharacter> Hero;
     TWeakObjectPtr<APlayerController> ListeningController;
@@ -184,6 +217,9 @@ private:
     TArray<TWeakObjectPtr<UAudioComponent>> Sounds;
     TArray<FStroke> Strokes;
     TMap<EGirlSaviorFeedbackCue, int32> CueCounts;
+    TMap<int64, FShotGroup> ShotGroups;
     double LastRecoil = -1.0;
+    float KickDistance = 0.f;
+    float KickRecoverSeconds = 1.f;
     bool bAttached = false;
 };

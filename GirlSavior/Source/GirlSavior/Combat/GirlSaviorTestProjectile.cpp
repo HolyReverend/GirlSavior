@@ -8,13 +8,25 @@
 #include "Components/StaticMeshComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Encounters/GirlSaviorCombatEncounter.h"
+#include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 
 #include <cmath>
 
 DEFINE_LOG_CATEGORY_STATIC(LogGirlSaviorProjectile, Log, All);
+
+// Equal full and max distances use a hard cutoff, including contact at the endpoint.
+float FGirlSaviorProjectileLaunch::GetDamageMultiplierAtDistance(double Distance) const
+{
+	if (!bApplyDamageFalloff || FullDamageDistance >= MaxDistance)
+	{
+		return 1.f;
+	}
+	return static_cast<float>(FMath::Clamp((MaxDistance - Distance) / (MaxDistance - FullDamageDistance), 0.0, 1.0));
+}
 
 // Only the swept root participates in projectile collision; Blueprint visuals stay cosmetic.
 AGirlSaviorTestProjectile::AGirlSaviorTestProjectile()
@@ -91,6 +103,10 @@ AGirlSaviorTestProjectile* AGirlSaviorTestProjectile::SpawnCombatProjectile(UWor
 		|| (Faction != EGirlSaviorFaction::Hero && Faction != EGirlSaviorFaction::Enemy)
 		|| !FMath::IsFinite(Launch.Radius) || Launch.Radius <= 0.f || !FMath::IsFinite(Launch.Speed) || Launch.Speed <= 0.f
 		|| !FMath::IsFinite(Launch.MaxDistance) || Launch.MaxDistance <= 0.f
+		|| (Launch.bApplyDamageFalloff && (!FMath::IsFinite(Launch.FullDamageDistance)
+			|| Launch.FullDamageDistance < 0.f || Launch.FullDamageDistance > Launch.MaxDistance))
+		|| (!Launch.Damage.WeaponId.IsNone()
+			&& (Faction != EGirlSaviorFaction::Hero || Launch.Damage.ShotGroupId <= 0 || Launch.Damage.AttackId <= 0))
 		|| !FMath::IsFinite(4.f * (Launch.MaxDistance / Launch.Speed) + 0.25f))
 	{
 		return nullptr;
@@ -139,10 +155,17 @@ AGirlSaviorTestProjectile* AGirlSaviorTestProjectile::SpawnCombatProjectile(UWor
 	return Projectile;
 }
 
+// Share the exact safety lifetime with listeners registered before BeginPlay.
+float AGirlSaviorTestProjectile::GetCombatLifetimeSeconds() const
+{
+	return FMath::Max(1.5f, 4.f * (LaunchSnapshot.MaxDistance / LaunchSnapshot.Speed) + 0.25f);
+}
+
 // Drive the stock sweep at a bounded timestep while preserving the legacy native subobject.
 void AGirlSaviorTestProjectile::ConfigureCombatShot()
 {
-	InitialLifeSpan = FMath::Max(1.5f, 4.f * (LaunchSnapshot.MaxDistance / LaunchSnapshot.Speed) + 0.25f);
+	InitialLifeSpan = GetCombatLifetimeSeconds();
+	CollisionSphere->bReturnMaterialOnMove = true;
 	CollisionSphere->SetSphereRadius(LaunchSnapshot.Radius, false);
 	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollisionSphere->SetCollisionObjectType(LaunchSnapshot.Damage.SourceFaction == EGirlSaviorFaction::Hero
@@ -191,14 +214,21 @@ void AGirlSaviorTestProjectile::StopAtInitialBlocker()
 	}
 	const auto* Encounter = CombatEncounter.Get();
 	const bool bInsideBoundary = Encounter && Encounter->CrossesSafeArea(Origin, Origin, Radius);
-	if (!bInsideBoundary && !GetWorld()->OverlapBlockingTestByChannel(Origin, FQuat::Identity,
+	TArray<FOverlapResult> Overlaps;
+	if (!bInsideBoundary && !GetWorld()->OverlapMultiByChannel(Overlaps, Origin, FQuat::Identity,
 		CollisionSphere->GetCollisionObjectType(), FCollisionShape::MakeSphere(Radius), Query,
 		FCollisionResponseParams(CollisionSphere->GetCollisionResponseToChannels())))
 	{
 		return;
 	}
 
-	FHitResult Hit;
+	const FOverlapResult* Blocker = Overlaps.FindByPredicate([](const FOverlapResult& Overlap)
+	{
+		return Overlap.bBlockingHit;
+	});
+	// An initial overlap has an identity but no swept surface material.
+	FHitResult Hit(Blocker ? Blocker->GetActor() : nullptr, Blocker ? Blocker->GetComponent() : nullptr,
+		Origin - TravelDirection * Radius, -TravelDirection);
 	Hit.bBlockingHit = true;
 	Hit.bStartPenetrating = true;
 	Hit.ImpactPoint = Origin - TravelDirection * Radius;
@@ -249,14 +279,21 @@ void AGirlSaviorTestProjectile::Tick(float DeltaSeconds)
 		StepDistance = Clear;
 	}
 
-	float StepSeconds = static_cast<float>(StepDistance / Speed);
-	if (double(StepSeconds) * Speed > StepDistance)
+	if (bRangeLimited && !bBoundaryLimited && GetSourceFaction() == EGirlSaviorFaction::Hero)
 	{
-		StepSeconds = std::nextafter(StepSeconds, 0.f);
+		SweepRemainingHeroRange(Start + TravelDirection * StepDistance);
 	}
-	if (StepSeconds > 0.f)
+	else
 	{
-		ProjectileMovement->TickComponent(StepSeconds, LEVELTICK_All, nullptr);
+		float StepSeconds = static_cast<float>(StepDistance / Speed);
+		if (double(StepSeconds) * Speed > StepDistance)
+		{
+			StepSeconds = std::nextafter(StepSeconds, 0.f);
+		}
+		if (StepSeconds > 0.f)
+		{
+			ProjectileMovement->TickComponent(StepSeconds, LEVELTICK_All, nullptr);
+		}
 	}
 	if (bCompleted)
 	{
@@ -268,11 +305,15 @@ void AGirlSaviorTestProjectile::Tick(float DeltaSeconds)
 		FlightTrail->Flush();
 		const FVector Head = GetActorLocation();
 		const bool bEnemy = LaunchSnapshot.Damage.SourceFaction == EGirlSaviorFaction::Enemy;
-		const double Length = FMath::Min(bEnemy ? 82.0 : 68.0, DistanceTraveled);
-		const FLinearColor Color = bEnemy ? FLinearColor(1.f, 0.15f, 0.045f) : FLinearColor(1.f, 0.88f, 0.57f);
+		const auto& Trail = GetTrail();
+		const double Length = FMath::Min(Trail ? double(Trail->Length) : (bEnemy ? 82.0 : 68.0), DistanceTraveled);
+		const FLinearColor Color = Trail ? Trail->Color
+			: (bEnemy ? FLinearColor(1.f, 0.15f, 0.045f) : FLinearColor(1.f, 0.88f, 0.57f));
+		const float TailWidth = Trail ? Trail->Width * (2.f / 3.f) : (bEnemy ? 5.f : 2.f);
+		const float HeadWidth = Trail ? Trail->Width : (bEnemy ? 7.f : 3.f);
 		const FVector Middle = Head - TravelDirection * (Length * 0.4);
-		FlightTrail->DrawLine(Head - TravelDirection * Length, Middle, Color * 0.52f, SDPG_World, bEnemy ? 5.f : 2.f, 0.f);
-		FlightTrail->DrawLine(Middle, Head, Color, SDPG_World, bEnemy ? 7.f : 3.f, 0.f);
+		FlightTrail->DrawLine(Head - TravelDirection * Length, Middle, Color * 0.52f, SDPG_World, TailWidth, 0.f);
+		FlightTrail->DrawLine(Middle, Head, Color, SDPG_World, HeadWidth, 0.f);
 	}
 
 	if (bBoundaryLimited)
@@ -286,6 +327,37 @@ void AGirlSaviorTestProjectile::Tick(float DeltaSeconds)
 	else if (bRangeLimited && !TryResolveClippedEndContact())
 	{
 		Complete(EGirlSaviorProjectileCompletion::RangeExpired);
+	}
+}
+
+// Sweep the final step directly so float time quantization cannot shorten its range.
+void AGirlSaviorTestProjectile::SweepRemainingHeroRange(const FVector& Endpoint)
+{
+	const FVector Position = GetActorLocation();
+	const double StepDistance = FVector::DotProduct(Endpoint - Position, TravelDirection);
+	if (StepDistance <= 0.0)
+	{
+		return;
+	}
+	FCollisionQueryParams Query(SCENE_QUERY_STAT(GirlSaviorProjectileExactEnd), false, this);
+	FCollisionResponseParams Response;
+	CollisionSphere->InitSweepCollisionParams(Query, Response);
+	if (const AActor* Shooter = GetOwner())
+	{
+		Query.AddIgnoredActor(Shooter);
+	}
+	FHitResult Hit;
+	// Chaos can omit contacts at the exact sweep end. Probe past it and accept only range-roundoff hits.
+	constexpr double QueryPadding = 0.01;
+	constexpr double RangeRoundoff = 0.001;
+	const bool bBlocked = GetWorld()->SweepSingleByChannel(Hit, Position,
+		Endpoint + TravelDirection * QueryPadding, FQuat::Identity,
+		CollisionSphere->GetCollisionObjectType(), CollisionSphere->GetCollisionShape(), Query, Response)
+		&& double(Hit.Distance) <= StepDistance + RangeRoundoff;
+	SetActorLocation(bBlocked && Hit.Distance < StepDistance ? Hit.Location : Endpoint);
+	if (bBlocked)
+	{
+		Complete(EGirlSaviorProjectileCompletion::Impact, &Hit);
 	}
 }
 
@@ -345,63 +417,7 @@ void AGirlSaviorTestProjectile::Complete(EGirlSaviorProjectileCompletion Reason,
 
 	if (Hit)
 	{
-		if (bCombatShot)
-		{
-			DistanceTraveled = FVector::Dist(LaunchSnapshot.Damage.Origin, GetActorLocation());
-		}
-		AActor* HitActor = Hit->GetActor();
-		auto* Receiver = HitActor && !(bCombatShot && Hit->bStartPenetrating)
-			? HitActor->FindComponentByClass<UGirlSaviorDamageReceiverComponent>() : nullptr;
-		FGirlSaviorProjectileImpact Impact;
-		Impact.Point = Hit->ImpactPoint;
-		Impact.Normal = Hit->ImpactNormal;
-		const auto* Encounter = CombatEncounter.Get();
-		Impact.bWardContact = (HitActor && HitActor->ActorHasTag(TEXT("CombatSafeWard")))
-			|| (Encounter && Encounter->CrossesSafeArea(Impact.Point, Impact.Point, CollisionSphere->GetScaledSphereRadius() + 1.f));
-		if (Receiver)
-		{
-			FGirlSaviorDamageSpec Damage = LaunchSnapshot.Damage;
-			if (!bCombatShot)
-			{
-				Damage.Physical = DamageAmount;
-				Damage.Origin = Hit->TraceStart;
-			}
-			Damage.Contact = Impact.Point;
-			Damage.ContactNormal = Impact.Normal;
-			Damage.bHasContact = true;
-			Damage.Causer = this;
-			Impact.ContactType = EGirlSaviorProjectileContact::Target;
-			Impact.bHasDamageResult = true;
-			Impact.DamageResult = Receiver->ResolveDamage(Damage);
-			// Support consumes only the final committed pistol hit, after structural death listeners.
-			if (auto* HitEncounter = CombatEncounter.Get(); bCombatShot && HitEncounter)
-			{
-				HitEncounter->NotifyHeroWeaponDamage(HitActor, Impact.DamageResult);
-			}
-		}
-
-		OnResolvedImpact.Broadcast(Impact);
-		if (bCombatShot && (!Encounter || !Encounter->HasFeedbackPresenter()))
-		{
-			// This greybox cue stays in the world after the projectile has gone.
-			FColor Color = FColor::Orange;
-			if (Impact.DamageResult.Outcome == EGirlSaviorDamageOutcome::Applied)
-			{
-				Color = Impact.DamageResult.bKilled ? FColor::Magenta : FColor::Red;
-			}
-			else if (Impact.DamageResult.Outcome == EGirlSaviorDamageOutcome::BlockedByDash)
-			{
-				Color = FColor::Cyan;
-			}
-			DrawDebugSphere(GetWorld(), Impact.Point, 12.f, 8, Color, false, .15f, 0, 1.5f);
-		}
-		else if (!bCombatShot)
-		{
-			const bool bHitTarget = Impact.ContactType == EGirlSaviorProjectileContact::Target;
-			UE_LOG(LogTemp, Log, TEXT("Prototype projectile impact: %s at %s"),
-				bHitTarget ? TEXT("Target") : TEXT("Obstacle"), *Impact.Point.ToString());
-			OnImpactCue(Impact.Point, bHitTarget);
-		}
+		ResolveContact(*Hit);
 	}
 
 	if (auto* Encounter = CombatEncounter.Get())
@@ -418,5 +434,87 @@ void AGirlSaviorTestProjectile::Complete(EGirlSaviorProjectileCompletion Reason,
 	if (Reason != EGirlSaviorProjectileCompletion::Removed && !IsActorBeingDestroyed())
 	{
 		Destroy();
+	}
+}
+
+// Resolve damage once at the projectile center. A spent round still stops on contact.
+void AGirlSaviorTestProjectile::ResolveContact(const FHitResult& Hit)
+{
+	if (bCombatShot)
+	{
+		DistanceTraveled = FMath::Clamp(FVector::Dist(LaunchSnapshot.Damage.Origin, GetActorLocation()),
+			0.0, double(LaunchSnapshot.MaxDistance));
+	}
+	AActor* HitActor = Hit.GetActor();
+	auto* Receiver = HitActor && !(bCombatShot && Hit.bStartPenetrating)
+		? HitActor->FindComponentByClass<UGirlSaviorDamageReceiverComponent>() : nullptr;
+	FGirlSaviorProjectileImpact Impact;
+	Impact.Point = Hit.ImpactPoint;
+	Impact.Normal = Hit.ImpactNormal;
+	Impact.WeaponId = LaunchSnapshot.Damage.WeaponId;
+	Impact.ShotGroupId = GetShotGroupId();
+	Impact.SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+	Impact.BlockingActor = HitActor;
+	Impact.BlockingComponent = Hit.GetComponent();
+	Impact.GeometryKeyPoint = Hit.bStartPenetrating ? GetActorLocation() : FVector(Hit.ImpactPoint);
+	const auto* Encounter = CombatEncounter.Get();
+	Impact.bWardContact = (HitActor && HitActor->ActorHasTag(TEXT("CombatSafeWard")))
+		|| (Encounter && Encounter->CrossesSafeArea(Impact.Point, Impact.Point, CollisionSphere->GetScaledSphereRadius() + 1.f));
+	if (Receiver)
+	{
+		FGirlSaviorDamageSpec Damage = LaunchSnapshot.Damage;
+		if (!bCombatShot)
+		{
+			Damage.Physical = DamageAmount;
+			Damage.Origin = Hit.TraceStart;
+		}
+		else if (LaunchSnapshot.bApplyDamageFalloff)
+		{
+			// Movement can pull the actor back from a blocker. The sweep gives its true center at contact.
+			const double ContactDistance = FMath::Min(FVector::Dist(Damage.Origin, Hit.Location),
+				double(LaunchSnapshot.MaxDistance));
+			const float Multiplier = LaunchSnapshot.GetDamageMultiplierAtDistance(ContactDistance);
+			Damage.Physical *= Multiplier;
+			Damage.Magical *= Multiplier;
+			if (Damage.Physical == 0.f && Damage.Magical == 0.f)
+			{
+				return;
+			}
+		}
+		Damage.Contact = Impact.Point;
+		Damage.ContactNormal = Impact.Normal;
+		Damage.bHasContact = true;
+		Damage.Causer = this;
+		Impact.ContactType = EGirlSaviorProjectileContact::Target;
+		Impact.bHasDamageResult = true;
+		Impact.DamageResult = Receiver->ResolveDamage(Damage);
+		// Support consumes only the final committed weapon hit, after structural death listeners.
+		if (auto* HitEncounter = CombatEncounter.Get(); !Damage.WeaponId.IsNone() && HitEncounter)
+		{
+			HitEncounter->NotifyHeroWeaponDamage(HitActor, Impact.DamageResult);
+		}
+	}
+
+	OnResolvedImpact.Broadcast(Impact);
+	if (bCombatShot && (!Encounter || !Encounter->HasFeedbackPresenter()))
+	{
+		// This greybox cue stays in the world after the projectile has gone.
+		FColor Color = FColor::Orange;
+		if (Impact.DamageResult.Outcome == EGirlSaviorDamageOutcome::Applied)
+		{
+			Color = Impact.DamageResult.bKilled ? FColor::Magenta : FColor::Red;
+		}
+		else if (Impact.DamageResult.Outcome == EGirlSaviorDamageOutcome::BlockedByDash)
+		{
+			Color = FColor::Cyan;
+		}
+		DrawDebugSphere(GetWorld(), Impact.Point, 12.f, 8, Color, false, .15f, 0, 1.5f);
+	}
+	else if (!bCombatShot)
+	{
+		const bool bHitTarget = Impact.ContactType == EGirlSaviorProjectileContact::Target;
+		UE_LOG(LogTemp, Log, TEXT("Prototype projectile impact: %s at %s"),
+			bHitTarget ? TEXT("Target") : TEXT("Obstacle"), *Impact.Point.ToString());
+		OnImpactCue(Impact.Point, bHitTarget);
 	}
 }

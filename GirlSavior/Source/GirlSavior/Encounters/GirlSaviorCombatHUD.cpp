@@ -4,6 +4,7 @@
 #include "Characters/GirlSaviorCharacterMovementComponent.h"
 #include "Characters/GirlSaviorDashSettings.h"
 #include "Combat/GirlSaviorDamageReceiverComponent.h"
+#include "Combat/GirlSaviorFireComponent.h"
 #include "Components/Button.h"
 #include "Core/GirlSaviorPlayerController.h"
 #include "Encounters/GirlSaviorCombatEncounter.h"
@@ -143,8 +144,17 @@ void AGirlSaviorCombatHUD::BindHero(AGirlSaviorCharacter* Hero)
         PreviousReceiver->OnDamageResolved.RemoveDynamic(this, &ThisClass::HandleDamageResolved);
         PreviousReceiver->OnBarrierChanged.RemoveAll(this);
     }
+    if (auto* PreviousFire = FireComponent.Get())
+    {
+        PreviousFire->OnWeaponChanged.RemoveAll(this);
+    }
     BoundHero = Hero;
     Receiver = Hero ? Hero->GetDamageReceiver() : nullptr;
+    FireComponent = Hero ? Hero->GetFireComponent() : nullptr;
+    if (auto* CurrentFire = FireComponent.Get())
+    {
+        CurrentFire->OnWeaponChanged.AddUObject(this, &ThisClass::HandleWeaponChanged);
+    }
     if (Hero)
     {
         Hero->MovementModeChangedDelegate.AddUniqueDynamic(this, &ThisClass::HandleMovementModeChanged);
@@ -171,6 +181,22 @@ void AGirlSaviorCombatHUD::BindHero(AGirlSaviorCharacter* Hero)
     DashReadout = EDashReadout::Unset;
     CacheDashDeadline();
     RefreshDash();
+    RefreshWeaponView();
+}
+
+// Sample after binding so the HUD reflects a configured hero before the first switch.
+void AGirlSaviorCombatHUD::RefreshWeaponView()
+{
+    if (VitalsWidget)
+    {
+        const auto* Fire = FireComponent.Get();
+        VitalsWidget->SetWeaponView(Fire && Fire->bUsesExpeditionWeapons ? Fire->GetWeaponView() : FGirlSaviorWeaponView{});
+    }
+}
+
+void AGirlSaviorCombatHUD::HandleWeaponChanged(int32 ActiveIndex)
+{
+    RefreshWeaponView();
 }
 
 void AGirlSaviorCombatHUD::HandleDamageResolved(const FGirlSaviorDamageResult& Result)

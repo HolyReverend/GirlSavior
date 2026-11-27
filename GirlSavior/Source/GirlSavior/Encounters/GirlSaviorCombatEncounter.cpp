@@ -23,6 +23,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameModeBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Support/GirlSaviorSupportRun.h"
 
 #define LOCTEXT_NAMESPACE "GirlSaviorCombatEncounter"
@@ -85,6 +87,7 @@ bool AGirlSaviorCombatEncounter::InitializeRun(APawn& Pawn)
 
     if (Claim == EGirlSaviorExpeditionClaim::Claimed)
     {
+        RunWeaponSlots = MoveTemp(Launch.WeaponSlots);
         TArray<const UGirlSaviorSupportAbilityDefinition*, TInlineAllocator<2>> Abilities;
         for (const auto& Ability : Launch.Abilities)
         {
@@ -123,7 +126,7 @@ bool AGirlSaviorCombatEncounter::InitializeCombat(AGirlSaviorCharacter& Pawn)
 {
     if (!IsValid(SafeArea) || (bWavesEnabled ? !ValidateWaveRoute() : PlacedEnemies.IsEmpty()) || !BindHero(Pawn))
     {
-        UE_LOG(LogGirlSaviorEncounter, Error, TEXT("%s is missing a safe area, enemy, hero vitals or configured pistol."), *GetName());
+        UE_LOG(LogGirlSaviorEncounter, Error, TEXT("%s is missing a safe area, enemy, hero vitals or a valid weapon table."), *GetName());
         return false;
     }
 
@@ -159,13 +162,35 @@ bool AGirlSaviorCombatEncounter::InitializeCombat(AGirlSaviorCharacter& Pawn)
     return bWavesEnabled || !LiveEnemies.IsEmpty();
 }
 
-// Bind a newly possessed prototype hero without resetting an already initialized receiver.
+// Give a newly possessed hero the run's loadout before publishing the hero to other systems.
 bool AGirlSaviorCombatEncounter::BindHero(AGirlSaviorCharacter& Pawn)
 {
     auto* Controller = Cast<AGirlSaviorPlayerController>(Pawn.GetController());
     auto* Receiver = Pawn.GetDamageReceiver();
-    if (!Controller || !Controller->IsLocalController() || !IsValid(SafeArea) || !IsValid(SafeArea->SafeVolume)
-        || !Pawn.GetFireComponent()->SetCombatEncounter(this))
+    auto* Fire = Pawn.GetFireComponent();
+    if (!Controller || !Controller->IsLocalController() || !IsValid(SafeArea) || !IsValid(SafeArea->SafeVolume))
+    {
+        return false;
+    }
+    if (RunWeaponSlots.IsEmpty())
+    {
+        bool bUseTestLoadout = false;
+#if !UE_BUILD_SHIPPING
+        bUseTestLoadout = FParse::Param(FCommandLine::Get(), TEXT("GirlSaviorWeaponCombatTest"));
+#endif
+        FText Error;
+        if (bCampOrigin || !Fire->ResolveDefaultWeapons(bUseTestLoadout, RunWeaponSlots, Error))
+        {
+            UE_LOG(LogGirlSaviorEncounter, Error, TEXT("Cannot resolve run weapons: %s"), *Error.ToString());
+            return false;
+        }
+    }
+    if (auto* PreviousFire = SuspendedFire.Get(); PreviousFire && PreviousFire != Fire)
+    {
+        PreviousFire->SetCombatEncounter(nullptr);
+    }
+    SuspendedFire.Reset();
+    if (!Fire->SetCombatEncounter(this, RunWeaponSlots, RunActiveWeaponIndex, RunShotDeadline))
     {
         return false;
     }
@@ -188,7 +213,20 @@ bool AGirlSaviorCombatEncounter::BindHero(AGirlSaviorCharacter& Pawn)
         }
     }
 
+    if (!Controller->RegisterWeaponInput())
+    {
+        if (SupportRun)
+        {
+            SupportRun->Detach();
+        }
+        Pawn.GetFireComponent()->SetCombatEncounter(nullptr);
+        return false;
+    }
+
     Hero = &Pawn;
+    RunActiveWeaponIndex = Fire->GetActiveWeaponSlot();
+    Fire->OnWeaponChanged.AddUObject(this, &ThisClass::RememberWeaponSelection);
+    Fire->OnWeaponShot.AddUObject(this, &ThisClass::RememberWeaponDeadline);
     Pawn.GetCapsuleComponent()->SetCollisionResponseToChannel(GirlSaviorCombatChannels::EnemyProjectile, ECR_Block);
     SafeArea->RegisterPawn(SafeArea->SafeVolume->IsOverlappingActor(&Pawn) ? &Pawn : nullptr);
     BindAdmission(*Receiver);
@@ -198,7 +236,20 @@ bool AGirlSaviorCombatEncounter::BindHero(AGirlSaviorCharacter& Pawn)
     return true;
 }
 
-void AGirlSaviorCombatEncounter::UnbindHero()
+void AGirlSaviorCombatEncounter::RememberWeaponSelection(int32 SlotIndex)
+{
+    RunActiveWeaponIndex = SlotIndex;
+}
+
+void AGirlSaviorCombatEncounter::RememberWeaponDeadline(const FGirlSaviorWeaponShotCue& Cue)
+{
+    if (const auto* BoundHero = Hero.Get())
+    {
+        RunShotDeadline = BoundHero->GetFireComponent()->GetNextShotGameTime();
+    }
+}
+
+void AGirlSaviorCombatEncounter::UnbindHero(bool bPreserveWeapons)
 {
     if (SupportRun)
     {
@@ -206,10 +257,33 @@ void AGirlSaviorCombatEncounter::UnbindHero()
     }
     if (AGirlSaviorCharacter* Previous = Hero.Get())
     {
+        if (auto* Controller = Cast<AGirlSaviorPlayerController>(Previous->GetController()))
+        {
+            Controller->RemoveWeaponInput();
+        }
         Previous->GetDamageReceiver()->OnDied.RemoveAll(this);
         Previous->GetDamageReceiver()->DamageAdmission.Unbind();
-        Previous->GetFireComponent()->SetCombatEncounter(nullptr);
+        auto* Fire = Previous->GetFireComponent();
+        Fire->OnWeaponChanged.RemoveAll(this);
+        Fire->OnWeaponShot.RemoveAll(this);
+        if (bPreserveWeapons)
+        {
+            Fire->SuspendCombatEncounter();
+            SuspendedFire = Fire;
+        }
+        else
+        {
+            Fire->SetCombatEncounter(nullptr);
+        }
         Previous->GetCapsuleComponent()->SetCollisionResponseToChannel(GirlSaviorCombatChannels::EnemyProjectile, ECR_Ignore);
+    }
+    if (!bPreserveWeapons)
+    {
+        if (auto* Fire = SuspendedFire.Get())
+        {
+            Fire->SetCombatEncounter(nullptr);
+        }
+        SuspendedFire.Reset();
     }
     if (!Hero.IsExplicitlyNull())
     {
@@ -275,7 +349,7 @@ void AGirlSaviorCombatEncounter::Tick(float DeltaSeconds)
                     Entry.Key->GetAttackComponent()->CancelForTargetChange();
                 }
             }
-            UnbindHero();
+            UnbindHero(true);
             auto* Pawn = Cast<AGirlSaviorCharacter>(Current);
             const bool bBound = Pawn && BindHero(*Pawn);
             if (bCampOrigin && Current && !bBound)
@@ -585,7 +659,7 @@ void AGirlSaviorCombatEncounter::UnregisterEnemy(AGirlSaviorEnemyCharacter* Enem
     }
 }
 
-// Run effects only for a positive post-resolver pistol hit on a living registered enemy.
+// Forward committed weapon hits on living registered enemies to support.
 void AGirlSaviorCombatEncounter::NotifyHeroWeaponDamage(AActor* HitActor, const FGirlSaviorDamageResult& Result)
 {
     auto* Enemy = Cast<AGirlSaviorEnemyCharacter>(HitActor);
@@ -642,6 +716,7 @@ void AGirlSaviorCombatEncounter::CloseRun(EGirlSaviorRunState TerminalState)
         if (auto* Controller = Cast<AGirlSaviorPlayerController>(BoundPawn->GetController()))
         {
             Controller->SetGameplayInputAvailable(false);
+            Controller->RemoveWeaponInput();
         }
         BoundPawn->GetCharacterMovement()->DisableMovement();
     }

@@ -6,6 +6,7 @@
 #include "Support/GirlSaviorHeroineDefinition.h"
 #include "Support/GirlSaviorSupportAbilityDefinition.h"
 #include "Support/GirlSaviorSupportValidation.h"
+#include "Weapons/GirlSaviorWeaponDefinition.h"
 
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"
@@ -130,6 +131,15 @@ bool UGirlSaviorCampDefinition::ValidateCatalog(FText& OutError) const
 bool UGirlSaviorCampDefinition::Validate(FText& OutError) const
 {
     if (!ValidateCatalog(OutError))
+    {
+        return false;
+    }
+    if (!IsValid(WeaponTable))
+    {
+        return Fail(*this, TEXT("WeaponTable"), LOCTEXT("MissingWeaponTable", "Таблица оружия недоступна."), OutError);
+    }
+    TArray<FGirlSaviorResolvedWeaponSlot> StarterSlots;
+    if (!ResolveWeaponLoadout(*WeaponTable, FGirlSaviorWeaponLoadout{}, StarterSlots, OutError))
     {
         return false;
     }

@@ -39,8 +39,11 @@ public:
 	void SetFireAllowed(bool bAllowed);
 	void SetSafeAreaActive(AActor* Area, bool bActive);
 	bool IsInSafeArea() const;
+	bool RegisterWeaponInput();
+	void RemoveWeaponInput();
 
 protected:
+	virtual void SetupInputComponent() override;
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -57,7 +60,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Prototype|Input")
 	TObjectPtr<UInputMappingContext> GameplayMappingContext;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Weapons|Input")
+	TObjectPtr<UInputMappingContext> ExpeditionWeaponMappingContext;
+
+	// Each action corresponds to the matching zero-based weapon slot.
+	UPROPERTY(EditDefaultsOnly, Category = "Weapons|Input")
+	TArray<TObjectPtr<UInputAction>> WeaponSlotActions;
+
 private:
+	void SelectWeaponSlot(int32 SlotIndex);
 	void RegisterGameplayInput();
 	void RemoveGameplayInput();
 	FViewport* GetGameplayViewport() const;
@@ -79,6 +90,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UInputMappingContext> RegisteredMappingContext;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UInputMappingContext> RegisteredWeaponMappingContext;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<UEnhancedInputLocalPlayerSubsystem> RegisteredInputSubsystem;

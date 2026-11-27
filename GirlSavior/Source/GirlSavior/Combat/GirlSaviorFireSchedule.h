@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Math/UnrealMathUtility.h"
+
 // Ordered edges preserve short ready taps without buffering clicks through cooldown.
 struct FGirlSaviorFireSchedule
 {
@@ -18,6 +20,9 @@ struct FGirlSaviorFireSchedule
 		return Now >= NextShotGameTime && (bHeld || bPressed);
 	}
 	void Launched(double Now, double Rate) { NextShotGameTime = Now + 1. / Rate; }
+	double GetNextShotGameTime() const { return NextShotGameTime; }
+	// A replacement pawn inherits the run's already-paid deadline.
+	void PreserveDeadline(double Deadline) { NextShotGameTime = FMath::Max(NextShotGameTime, Deadline); }
 private:
 	double NextShotGameTime = 0.;
 	bool bHeld = false;

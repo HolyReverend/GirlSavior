@@ -23,7 +23,7 @@ See [ownership and C++ boundaries](WeaponArchitecture.md) and the [implementatio
 | Row | Damage × projectiles | Shots/s | Full / max distance | Radius / speed | Behavior |
 | --- | --- | --- | --- | --- | --- |
 | `Pistol` · Пистолет | `10 × 1` | `4.0` | `1400 / 1400` | `6 / 2000` | `UGirlSaviorPistol`, zero spread |
-| `Shotgun` · Дробовик | `6 × 5` | `1 / 0.70` (enter `1.4285714`) | `300 / 800` | `4 / 2000` | `UGirlSaviorShotgun`, fixed `6°` step |
+| `Shotgun` · Дробовик | `20 × 5` | `1 / 0.70` (enter `1.4285714`) | `300 / 800` | `4 / 2000` | `UGirlSaviorShotgun`, fixed `6°` step |
 | `AssaultRifle` · Автоматическая винтовка | `5.5 × 1` | `8.0` | `700 / 1200` | `4 / 2600` | `UGirlSaviorAssaultRifle`, `3` tight shots, `1° / 4°`, `0.30 s` reset |
 
 Shotgun and rifle radius and speed are initial implementation tuning. Pistol radius and speed follow the current native defaults. In the editor compare the saved `DA_CombatPistol` and `BP_CombatCharacter` overrides before migrating. Resolve any discrepancy against pistol acceptance and the design card. Record the chosen migration numbers once in the table.

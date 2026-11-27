@@ -9,6 +9,7 @@
 #include "Misc/ScopeExit.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectGlobals.h"
+#include "Weapons/GirlSaviorWeaponProfileSubsystem.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGirlSaviorExpeditionSessionTest, "GirlSavior.Camp.ExpeditionSession",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -43,6 +44,9 @@ bool FGirlSaviorExpeditionSessionTest::RunTest(const FString& Parameters)
 
     auto* Instance = NewObject<UGameInstance>();
     auto* Session = NewObject<UGirlSaviorExpeditionSessionSubsystem>(Instance);
+    auto* Profile = NewObject<UGirlSaviorWeaponProfileSubsystem>(Instance);
+    Profile->SetTestStorage(FGuid::NewGuid(), true, true);
+    Session->SetWeaponProfileForTest(Profile);
     UWorld* Camp = MakeSessionWorld(*Instance, Catalog->CampMap);
     UWorld* Route = MakeSessionWorld(*Instance, Catalog->ExpeditionMap);
     UWorld* ForeignRoute = MakeSessionWorld(*NewObject<UGameInstance>(), Catalog->ExpeditionMap);
@@ -71,6 +75,16 @@ bool FGirlSaviorExpeditionSessionTest::RunTest(const FString& Parameters)
 
     FText Error;
     FGirlSaviorExpeditionLaunch Claim;
+    FGirlSaviorWeaponLoadout Loadout;
+    Loadout.Slot1 = NAME_None;
+    Loadout.Slot2 = TEXT("AssaultRifle");
+    Loadout.Slot3 = TEXT("Shotgun");
+    if (!TestNotNull(TEXT("Camp weapon table"), Catalog->WeaponTable.Get())
+        || !TestTrue(TEXT("Confirm a playtest set with slot one empty"),
+            Profile->TryConfirmLoadout(*Catalog->WeaponTable, Loadout, Error)))
+    {
+        return false;
+    }
     FString Options;
     auto CaptureDispatch = [&Options](UWorld&, const TSoftObjectPtr<UWorld>&, const FString& LaunchOptions)
     {
@@ -113,6 +127,10 @@ bool FGirlSaviorExpeditionSessionTest::RunTest(const FString& Parameters)
     {
         return false;
     }
+    TestTrue(TEXT("A later profile write succeeds independently of the pending launch"),
+        Profile->TryConfirmLoadout(*Catalog->WeaponTable, FGirlSaviorWeaponLoadout{}, Error));
+    TestTrue(TEXT("The pending URL carries only the run token"),
+        Options.StartsWith(TEXT("?CampRunId=")) && !Options.Contains(TEXT("AssaultRifle")));
     TestFalse(TEXT("A pending request rejects duplicate dispatch"), Session->RequestLaunch(*Camp, *Catalog, Draft, Error));
     TestTrue(TEXT("A matching route from another game instance cannot claim the request"),
         Session->ClaimLaunch(*ForeignRoute, Options, Claim, Error) == EGirlSaviorExpeditionClaim::Rejected);
@@ -123,6 +141,11 @@ bool FGirlSaviorExpeditionSessionTest::RunTest(const FString& Parameters)
     }
 
     const FGuid AcceptedId = Claim.RunId;
+    TestTrue(TEXT("The claim retains the original gap and weapon row copies"),
+        Claim.ValidateWeapons(Error) && Claim.WeaponLoadout.Slot1.IsNone()
+            && Claim.WeaponSlots[1].WeaponId == TEXT("AssaultRifle")
+            && Claim.WeaponSlots[2].WeaponId == TEXT("Shotgun")
+            && Claim.WeaponSlots[1].Row.DamagePerProjectile == 5.5f);
     if (!TestTrue(TEXT("Claim preserves the selected order"), Claim.AbilityIds == TArray<FName>({Rate, Slow})))
     {
         return false;
@@ -130,6 +153,8 @@ bool FGirlSaviorExpeditionSessionTest::RunTest(const FString& Parameters)
     FGirlSaviorExpeditionLaunch Tampered = Claim;
     Tampered.AbilityIds.Swap(0, 1);
     TestFalse(TEXT("Payload validation detects mismatched stable IDs and assets"), Tampered.ValidateAbilities(Error));
+    Tampered.WeaponSlots.Swap(1, 2);
+    TestFalse(TEXT("Payload validation rejects out-of-order weapon rows"), Tampered.ValidateWeapons(Error));
     TestFalse(TEXT("A claim alone does not permit returning"), Session->CanReturn(*Route));
     TestTrue(TEXT("A duplicate claimant leaves the reserved pair intact"),
         Session->ClaimLaunch(*Route, Options, Claim, Error) == EGirlSaviorExpeditionClaim::Duplicate && Claim.Abilities.IsEmpty());

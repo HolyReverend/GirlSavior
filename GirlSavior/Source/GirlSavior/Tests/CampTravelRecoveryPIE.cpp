@@ -19,6 +19,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Expeditions/GirlSaviorExpeditionSessionSubsystem.h"
+#include "Weapons/GirlSaviorWeaponProfileSubsystem.h"
 #include "Feedback/GirlSaviorCombatFeedbackPresenter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HAL/IConsoleManager.h"
@@ -161,6 +162,14 @@ private:
         Draft.ToggleAbility(*Catalog.Get(), TEXT("MechanismOverdrive"));
         Draft.ToggleAbility(*Catalog.Get(), TEXT("TravelersBarrier"));
         FText Error;
+        auto* Profile = Instance->GetSubsystem<UGirlSaviorWeaponProfileSubsystem>();
+        if (!Check(Profile && Catalog->WeaponTable && Profile->EnsureLoaded(*Catalog->WeaponTable, Error),
+            TEXT("The Camp recovery fixture loaded its weapon profile")))
+        {
+            Finish();
+            return;
+        }
+        ExpectedWeapons = Profile->GetConfirmedLoadout();
         if (!Check(Session.RequestLaunch(World, *Catalog.Get(), Draft, Error), TEXT("Camp accepted the launch request")))
         {
             UE_LOG(LogCampRecoveryPIE, Error, TEXT("%s"), *Error.ToString());
@@ -197,6 +206,10 @@ private:
         }
         if (Step == EStep::Back && bCamp && Origin.Get() != World && Cast<AGirlSaviorCampPlayerController>(Controller))
         {
+            const auto* Profile = Instance->GetSubsystem<UGirlSaviorWeaponProfileSubsystem>();
+            const auto& Weapons = Profile->GetConfirmedLoadout();
+            Check(Weapons.Slot1 == ExpectedWeapons.Slot1 && Weapons.Slot2 == ExpectedWeapons.Slot2
+                && Weapons.Slot3 == ExpectedWeapons.Slot3, TEXT("Returning kept the confirmed weapon order"));
             if (Case == ECase::StackedBarrier)
             {
                 const auto Remembered = Session->GetLastConfirmedAbilityIds();
@@ -258,9 +271,10 @@ private:
         Check(Encounter->GetRunState() == EGirlSaviorRunState::Recovery && Encounter->CanReturnToCamp()
             && Outcome->GetDisplayedActionLabel().ToString() == TEXT("В лагерь") && !Outcome->GetDisplayedCause().IsEmpty(),
             TEXT("The trusted failed launch shows a diagnostic and the Camp action"));
-        Check(Hero && Receiver && FMath::IsNearlyEqual(Hero->GetFireComponent()->GetEffectiveShotsPerSecond(), 4.f)
+        Check(Hero && Receiver && !Hero->GetFireComponent()->GetConfiguredWeaponDefinition()
+            && Hero->GetFireComponent()->GetEffectiveShotsPerSecond() == 0.f
             && Receiver->GetMaxBarrier() == Receiver->GetInitialBarrier() && Session->GetLastConfirmedAbilityIds().IsEmpty(),
-            TEXT("Recovery applied no support and confirmed no choice"));
+            TEXT("Recovery armed no weapon, applied no support and confirmed no choice"));
         Check(Case != ECase::Init || bInvalidated, TEXT("The intended route fault exercised recovery"));
         RejectedId = Encounter->GetCampRunId();
         Origin = World;
@@ -403,6 +417,7 @@ private:
     FDelegateHandle Pre;
     FDelegateHandle Post;
     FGuid RejectedId;
+    FGirlSaviorWeaponLoadout ExpectedWeapons;
     ECase Case;
     EStep Step = EStep::Start;
     double Deadline = 0;

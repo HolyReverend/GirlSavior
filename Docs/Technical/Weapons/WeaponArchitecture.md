@@ -1,6 +1,6 @@
 # Weapon system architecture
 
-Status as of 2026-11-24 — proposed implementation for Unreal Engine 5.9 Preview. Start with the [implementation plan](ImplementationPlan.md). Player-facing rules belong to [Weapons](../../GameDesign/Mechanics/Weapons/Weapons.md) and [Character Shooting](../../GameDesign/Mechanics/Weapons/CharacterShootSystem.md).
+This document specifies the target architecture for Unreal Engine 5.9 Preview. W1–W3 implement the catalog, three firearms, expedition switching, the Camp weapon editor and persistent loadout handoff. See the [implementation plan](ImplementationPlan.md) for execution status and [current architecture](../Architecture.md) for the live wiring. Player-facing rules belong to [Weapons](../../GameDesign/Mechanics/Weapons/Weapons.md) and [Character Shooting](../../GameDesign/Mechanics/Weapons/CharacterShootSystem.md).
 
 ## Delivery
 
@@ -65,7 +65,7 @@ The signatures below specify the call direction and values. Headers can forward-
 | `Combat/GirlSaviorFireComponent.{h,cpp}` | `ConfigureExpeditionWeapons(TConstArrayView<FGirlSaviorResolvedWeaponSlot>, int32 PreferredIndex, FText&)` builds slots in temporary storage and publishes them only after complete validation. `TrySelectWeaponSlot(int32 SlotIndex)` is a zero-based intent, validated at the component. `GetWeaponView()` returns three read-only slot descriptors and `ActiveIndex`, with `INDEX_NONE` for no active weapon. `OnWeaponChanged` and `OnWeaponShot` are native notifications. |
 | `Weapons/GirlSaviorWeaponProfileSubsystem.{h,cpp}`, `Weapons/GirlSaviorWeaponSaveGame.h` | Profile read, confirmation and persistence. The profile has no pointers to Camp actors, widgets, or live firearms. [Profile contract](WeaponLoadout.md#profile-and-persistence) |
 
-`FGirlSaviorWeaponFireContext` carries the hero, encounter, capsule-center origin, unit horizontal aim and current game time. `FGirlSaviorWeaponShotCue` carries the weapon ID, shot group ID, origin, center aim direction and the committed weapon's presentation parameters. A HUD slot view only needs the ID, localized name and icon. Validate and copy DataTable rows before the run. Treat `FindRow` pointers as local to lookup. [Epic DataTable documentation](https://dev.epicgames.com/documentation/unreal-engine/data-driven-gameplay-elements-in-unreal-engine)
+`FGirlSaviorWeaponFireContext` carries the hero, encounter, capsule-center origin, unit horizontal aim and current game time. `FGirlSaviorWeaponShotCue` carries the weapon ID, shot group ID, origin, center aim direction and the committed weapon's presentation parameters. The presenter uses the typed cue and the HUD reads `GetWeaponView()` for all three IDs, localized names, icons and the active index. Both refresh on `OnWeaponChanged` and bind to the current hero. Validate and copy DataTable rows before the run. Treat `FindRow` pointers as local to lookup. [Epic DataTable documentation](https://dev.epicgames.com/documentation/unreal-engine/data-driven-gameplay-elements-in-unreal-engine)
 
 ## Extension
 

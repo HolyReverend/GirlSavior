@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Chaos/ChaosEngineInterface.h"
 #include "Combat/GirlSaviorDamageTypes.h"
 #include "GameFramework/Actor.h"
 #include "GirlSaviorTestProjectile.generated.h"
@@ -12,6 +13,15 @@ class ULineBatchComponent;
 class AGirlSaviorCombatEncounter;
 class AGirlSaviorTestProjectile;
 
+// Presentation remains tied to the shot, even after a weapon switch.
+struct FGirlSaviorProjectileTrail
+{
+	float Length;
+	float Width;
+	float FadeSeconds;
+	FLinearColor Color;
+};
+
 // Launch values are copied before Blueprint construction and survive destruction of the shooter.
 struct FGirlSaviorProjectileLaunch
 {
@@ -20,6 +30,11 @@ struct FGirlSaviorProjectileLaunch
 	float Speed = 0.f;
 	float MaxDistance = 0.f;
 	bool bResolveClippedEndContact = false;
+	bool bApplyDamageFalloff = false;
+	float FullDamageDistance = 0.f;
+	TOptional<FGirlSaviorProjectileTrail> Trail;
+
+	float GetDamageMultiplierAtDistance(double Distance) const;
 };
 
 UENUM(BlueprintType)
@@ -48,6 +63,20 @@ struct FGirlSaviorProjectileImpact
 
 	UPROPERTY(BlueprintReadOnly, Category = "Projectile")
 	bool bWardContact = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Projectile")
+	FName WeaponId;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Projectile")
+	int64 ShotGroupId = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Projectile")
+	TEnumAsByte<EPhysicalSurface> SurfaceType = SurfaceType_Default;
+
+	// Weak identities survive payload copies without keeping scene objects alive.
+	TWeakObjectPtr<AActor> BlockingActor;
+	TWeakObjectPtr<UPrimitiveComponent> BlockingComponent;
+	FVector GeometryKeyPoint = FVector::ZeroVector;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Projectile")
 	FGirlSaviorDamageResult DamageResult;
@@ -103,7 +132,11 @@ public:
 	double GetRangeRemaining() const { return FMath::Max(0.0, double(LaunchSnapshot.MaxDistance) - DistanceTraveled); }
 
 	int64 GetAttackId() const { return LaunchSnapshot.Damage.AttackId; }
+	int64 GetShotGroupId() const { return LaunchSnapshot.Damage.ShotGroupId; }
+	FName GetWeaponId() const { return LaunchSnapshot.Damage.WeaponId; }
+	float GetCombatLifetimeSeconds() const;
 	EGirlSaviorFaction GetSourceFaction() const { return LaunchSnapshot.Damage.SourceFaction; }
+	const TOptional<FGirlSaviorProjectileTrail>& GetTrail() const { return LaunchSnapshot.Trail; }
 	const FVector& GetTravelDirection() const { return TravelDirection; }
 
 protected:
@@ -119,6 +152,8 @@ private:
 	void ConfigureCombatShot();
 	void StopAtInitialBlocker();
 	bool TryResolveClippedEndContact();
+	void SweepRemainingHeroRange(const FVector& Endpoint);
+	void ResolveContact(const FHitResult& Hit);
 	void Complete(EGirlSaviorProjectileCompletion Reason, const FHitResult* Hit = nullptr);
 
 	// Resolve only the first blocking stop, independently of damage acceptance.

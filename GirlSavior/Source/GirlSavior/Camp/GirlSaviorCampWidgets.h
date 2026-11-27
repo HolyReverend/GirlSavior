@@ -5,13 +5,34 @@
 #include "GirlSaviorCampWidgets.generated.h"
 
 class UButton;
+class UBorder;
 class UGirlSaviorCampDefinition;
 class UGirlSaviorHeroineDefinition;
 class UGirlSaviorSupportAbilityDefinition;
 class UImage;
+class UHorizontalBox;
 class UTextBlock;
 class UTexture2D;
 class UWidgetSwitcher;
+class UVerticalBox;
+
+namespace GirlSavior::CampUI
+{
+// Native table pages share the same palette and layout helpers.
+extern const FLinearColor Field;
+extern const FLinearColor Ink;
+extern const FLinearColor Accent;
+extern const FLinearColor Selected;
+UTextBlock* Text(UWidgetTree& Tree, const FText& Value, int32 Size, const FLinearColor& Color = Ink,
+    bool bBold = false, float WrapWidth = 0.f, FName Name = NAME_None);
+UBorder* Border(UWidgetTree& Tree, const FMargin& Padding, const FLinearColor& Color);
+void MountModal(UWidgetTree& Tree, UWidget* Content);
+UBorder* MakePage(UWidgetTree& Tree, float Width, UVerticalBox*& Column);
+void StyleButton(UButton& Button, const FLinearColor& Color);
+UButton* ActionButton(UWidgetTree& Tree, FName Name, const FText& Label, bool bPrimary = false);
+UImage* AddImage(UWidgetTree& Tree, UHorizontalBox& Row, float Size);
+void AddActions(UWidgetTree& Tree, UVerticalBox& Column, UButton* Back, UButton* Forward);
+}
 
 UCLASS(Blueprintable)
 class GIRLSAVIOR_API UGirlSaviorCampPromptWidget : public UUserWidget
@@ -111,8 +132,12 @@ class GIRLSAVIOR_API UGirlSaviorCampPreparationWidget : public UGirlSaviorCampMo
 public:
     // Render the controller's current page and draft from the read-only catalog.
     void Refresh(const UGirlSaviorCampDefinition& Catalog, TConstArrayView<FName> SelectedIds,
-        bool bShowPreparation, bool bValidSelection, const FText& Status);
+        bool bShowPreparation, bool bValidSelection, const FText& Status,
+        TConstArrayView<FText> WeaponSlots, bool bEnableWeaponPage, bool bValidCatalog);
     void FocusAfterLaunchFailure();
+    void FocusWeaponEntry(bool bShowPreparation);
+    UButton* GetWeaponEntryButton(bool bShowPreparation) const;
+    UButton* GetLaunchButton() const { return LaunchButton; }
 
 protected:
     virtual TSharedRef<SWidget> RebuildWidget() override;
@@ -129,6 +154,9 @@ protected:
     UFUNCTION(BlueprintCallable, Category="Camp")
     void RequestLaunch();
 
+    UFUNCTION(BlueprintCallable, Category="Camp")
+    void RequestWeaponLoadout();
+
     UPROPERTY(BlueprintReadOnly, Transient, Category="Camp")
     FText CurrentMissionName;
 
@@ -140,6 +168,9 @@ protected:
 
     UPROPERTY(BlueprintReadOnly, Transient, Category="Camp")
     TArray<FName> CurrentSelection;
+
+    UPROPERTY(BlueprintReadOnly, Transient, Category="Camp")
+    TArray<FText> CurrentWeaponSlots;
 
 private:
     void RequestCard(int32 Index);
@@ -167,6 +198,15 @@ private:
 
     UPROPERTY(Transient)
     TObjectPtr<UButton> ConfigureButton;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UButton> MissionWeaponsButton;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UButton> PreparationWeaponsButton;
+
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<UTextBlock>> WeaponSlotPreviews;
 
     UPROPERTY(Transient)
     TArray<FGirlSaviorCampCardWidgets> CardWidgets;

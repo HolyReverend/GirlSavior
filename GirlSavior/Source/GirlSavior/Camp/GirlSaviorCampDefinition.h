@@ -6,6 +6,7 @@
 
 class UGirlSaviorHeroineDefinition;
 class UGirlSaviorSupportAbilityDefinition;
+class UDataTable;
 class UWorld;
 
 // A catalog match carries the owner and the card data together.
@@ -40,6 +41,10 @@ public:
     // Краткая цель вылазки для списка миссий.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Mission", meta=(MultiLine))
     FText MissionDescription;
+
+    // Общая таблица оружия для карточек Лагеря и запуска вылазки.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Weapons")
+    TObjectPtr<UDataTable> WeaponTable;
 
     // Карта, которую игра открывает после подтверждения вылазки.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Mission")

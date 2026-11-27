@@ -14,6 +14,8 @@ Use this index when you need to find a document. Start with the file and section
 | Playable combat route with ordinary enemies and waves | [Combat prototype plan](Technical/CombatPrototype/ImplementationPlan.md) |
 | Walkable Camp, two-of-three skill preparation and the linked combat route | [Camp prototype plan](Technical/CampPrototype/ImplementationPlan.md) |
 | Three playable weapons, slot selection at the Expedition Table and in-combat switching | [Weapon system plan](Technical/Weapons/ImplementationPlan.md) |
+| Weapon searches, mission cards, authored routes, and extracting weapons into the Camp profile | [Weapon expeditions plan](Technical/WeaponExpeditions/ImplementationPlan.md) |
+| In-game console cheats | [Gameplay cheats](Technical/Cheats.md) |
 
 ## Prototype 1 technical tasks
 
@@ -52,6 +54,14 @@ Use this index when you need to find a document. Start with the file and section
 | Author shared weapon data, fire three distinct patterns, and switch slots | [Weapon data and combat](Technical/Weapons/WeaponDataAndCombat.md) |
 | Edit and save slots at the table and carry a fixed set into the expedition | [Weapon selection and travel](Technical/Weapons/WeaponLoadout.md) |
 | Show distinct shots, resolved impacts and the active weapon | [Weapon feedback and HUD](Technical/Weapons/WeaponFeedback.md) |
+
+## Weapon expedition technical tasks
+
+| Task | Detailed document |
+| --- | --- |
+| Define the catalog, Data Assets and trusted launch snapshot | [Expedition architecture](Technical/WeaponExpeditions/ExpeditionArchitecture.md) |
+| Select an expedition from cards and prepare at the table | [Expedition Table cards](Technical/WeaponExpeditions/ExpeditionTable.md) |
+| Assemble both three-room maps, collect and extract weapons | [Route and reward](Technical/WeaponExpeditions/RouteAndReward.md) |
 
 `GameDesign/` owns concepts, mechanics, and game rules. `Technical/` owns roadmaps, implementation stages, technical architecture, and implementation details. Open the other branch only for a specific design decision or technical constraint the task needs.
 

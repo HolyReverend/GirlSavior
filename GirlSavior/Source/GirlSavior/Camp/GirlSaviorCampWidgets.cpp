@@ -41,8 +41,8 @@ const FLinearColor Selected(0.16f, 0.22f, 0.11f);
 const FLinearColor Primary(0.60f, 0.34f, 0.12f);
 
 // Give every dynamic text field the same camp palette and use fixed wrapping for long descriptions.
-UTextBlock* Text(UWidgetTree& Tree, const FText& Value, int32 Size, const FLinearColor& Color = Ink,
-    bool bBold = false, float WrapWidth = 0.f, FName Name = NAME_None)
+UTextBlock* Text(UWidgetTree& Tree, const FText& Value, int32 Size, const FLinearColor& Color,
+    bool bBold, float WrapWidth, FName Name)
 {
     auto* Widget = Tree.ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), Name);
     Widget->SetText(Value);
@@ -110,7 +110,7 @@ void StyleButton(UButton& Button, const FLinearColor& Color)
 }
 
 // Give action buttons stable names for editor inspection and PIE tests.
-UButton* ActionButton(UWidgetTree& Tree, FName Name, const FText& Label, bool bPrimary = false)
+UButton* ActionButton(UWidgetTree& Tree, FName Name, const FText& Label, bool bPrimary)
 {
     auto* Button = Tree.ConstructWidget<UButton>(UButton::StaticClass(), Name);
     StyleButton(*Button, bPrimary ? Primary : Field);
@@ -284,6 +284,9 @@ TSharedRef<SWidget> UGirlSaviorCampPreparationWidget::RebuildWidget()
     MissionStatus = Text(Tree, FText::GetEmpty(), 13, Accent, false, 430.f, TEXT("CampMissionStatus"));
     MissionColumn->AddChildToVerticalBox(MissionStatus)->SetPadding(FMargin(0.f, 7.f, 0.f, 0.f));
     MissionStatus->SetVisibility(ESlateVisibility::Collapsed);
+    MissionWeaponsButton = ActionButton(Tree, TEXT("MissionWeaponsButton"), LOCTEXT("WeaponLoadout", "Набор оружия"));
+    MissionWeaponsButton->OnClicked.AddUniqueDynamic(this, &ThisClass::RequestWeaponLoadout);
+    MissionColumn->AddChildToVerticalBox(MissionWeaponsButton)->SetPadding(FMargin(0.f, 12.f, 0.f, 0.f));
     ConfigureButton = ActionButton(Tree, TEXT("MissionConfigureButton"), LOCTEXT("Configure", "Настроить вылазку"), true);
     auto* MissionBack = ActionButton(Tree, TEXT("MissionBackButton"), LOCTEXT("Back", "Назад"));
     ConfigureButton->OnClicked.AddUniqueDynamic(this, &ThisClass::RequestPreparationPage);
@@ -293,9 +296,21 @@ TSharedRef<SWidget> UGirlSaviorCampPreparationWidget::RebuildWidget()
     UVerticalBox* PreparationColumn = nullptr;
     PageSwitcher->AddChild(MakePage(Tree, 810.f, PreparationColumn));
     PreparationColumn->AddChildToVerticalBox(Text(Tree, LOCTEXT("PreparationTitle", "Подготовка вылазки"), 29, Ink, true));
-    auto* PistolPlate = Border(Tree, FMargin(12.f, 7.f), Field);
-    PistolPlate->SetContent(Text(Tree, LOCTEXT("FixedPistol", "Оружие · слот 1 · Пистолет"), 14, Ink, true));
-    PreparationColumn->AddChildToVerticalBox(PistolPlate)->SetPadding(FMargin(0.f, 11.f, 0.f, 0.f));
+    auto* WeaponsRow = Tree.ConstructWidget<UHorizontalBox>();
+    PreparationColumn->AddChildToVerticalBox(WeaponsRow)->SetPadding(FMargin(0.f, 11.f, 0.f, 0.f));
+    PreparationWeaponsButton = ActionButton(Tree, TEXT("PreparationWeaponsButton"), LOCTEXT("WeaponLoadout", "Набор оружия"));
+    PreparationWeaponsButton->OnClicked.AddUniqueDynamic(this, &ThisClass::RequestWeaponLoadout);
+    WeaponsRow->AddChildToHorizontalBox(PreparationWeaponsButton)->SetPadding(FMargin(0.f, 0.f, 8.f, 0.f));
+    WeaponSlotPreviews.SetNum(3);
+    for (int32 Index = 0; Index < WeaponSlotPreviews.Num(); ++Index)
+    {
+        auto* Plate = Border(Tree, FMargin(8.f, 6.f), Field);
+        WeaponSlotPreviews[Index] = Text(Tree, FText::GetEmpty(), 13, Ink, true, 130.f);
+        Plate->SetContent(WeaponSlotPreviews[Index]);
+        auto* PreviewCell = WeaponsRow->AddChildToHorizontalBox(Plate);
+        PreviewCell->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+        PreviewCell->SetPadding(FMargin(0.f, 0.f, 6.f, 0.f));
+    }
 
     auto* CardsRow = Tree.ConstructWidget<UHorizontalBox>();
     PreparationColumn->AddChildToVerticalBox(CardsRow)->SetPadding(FMargin(0.f, 12.f, 0.f, 0.f));
@@ -339,13 +354,16 @@ TSharedRef<SWidget> UGirlSaviorCampPreparationWidget::RebuildWidget()
 
 // Render ordered offers and selected slots from the controller's validated draft view.
 void UGirlSaviorCampPreparationWidget::Refresh(const UGirlSaviorCampDefinition& Catalog,
-    TConstArrayView<FName> SelectedIds, bool bShowPreparation, bool bValidSelection, const FText& Status)
+    TConstArrayView<FName> SelectedIds, bool bShowPreparation, bool bValidSelection, const FText& Status,
+    TConstArrayView<FText> WeaponSlots, bool bEnableWeaponPage, bool bValidCatalog)
 {
     using namespace GirlSavior::CampUI;
     CurrentMissionName = Catalog.MissionName;
     CurrentMissionDescription = Catalog.MissionDescription;
     CurrentSelection.Reset(SelectedIds.Num());
     CurrentSelection.Append(SelectedIds.GetData(), SelectedIds.Num());
+    CurrentWeaponSlots.Reset(WeaponSlots.Num());
+    CurrentWeaponSlots.Append(WeaponSlots.GetData(), WeaponSlots.Num());
     CurrentOffers.Reset(Catalog.AvailableAbilityIds.Num());
     for (const FName AbilityId : Catalog.AvailableAbilityIds)
     {
@@ -368,7 +386,13 @@ void UGirlSaviorCampPreparationWidget::Refresh(const UGirlSaviorCampDefinition& 
     const bool bMissionError = !bShowPreparation && !Status.IsEmpty();
     MissionStatus->SetText(Status);
     MissionStatus->SetVisibility(bMissionError ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
-    ConfigureButton->SetIsEnabled(!bMissionError);
+    ConfigureButton->SetIsEnabled(bValidCatalog);
+    MissionWeaponsButton->SetIsEnabled(bEnableWeaponPage);
+    PreparationWeaponsButton->SetIsEnabled(bEnableWeaponPage);
+    for (int32 Index = 0; Index < WeaponSlotPreviews.Num(); ++Index)
+    {
+        WeaponSlotPreviews[Index]->SetText(WeaponSlots.IsValidIndex(Index) ? WeaponSlots[Index] : FText::GetEmpty());
+    }
     for (int32 Index = 0; Index < CardWidgets.Num(); ++Index)
     {
         RenderCard(CardWidgets[Index], CurrentOffers.IsValidIndex(Index) ? &CurrentOffers[Index] : nullptr);
@@ -384,6 +408,29 @@ void UGirlSaviorCampPreparationWidget::Refresh(const UGirlSaviorCampDefinition& 
     SelectionStatus->SetText(Status);
     LaunchButton->SetIsEnabled(bValidSelection);
     OnPreparationRefreshed(bShowPreparation, bValidSelection, Status);
+}
+
+UButton* UGirlSaviorCampPreparationWidget::GetWeaponEntryButton(bool bShowPreparation) const
+{
+    return bShowPreparation ? PreparationWeaponsButton.Get() : MissionWeaponsButton.Get();
+}
+
+// Return keyboard focus to the action that opened the weapon page.
+void UGirlSaviorCampPreparationWidget::FocusWeaponEntry(bool bShowPreparation)
+{
+    auto* Entry = GetWeaponEntryButton(bShowPreparation);
+    if (auto* Controller = GetOwningPlayer())
+    {
+        (Entry && Entry->GetIsEnabled() ? static_cast<UWidget*>(Entry) : this)->SetUserFocus(Controller);
+    }
+}
+
+void UGirlSaviorCampPreparationWidget::RequestWeaponLoadout()
+{
+    if (auto* Controller = GetOwningPlayer<AGirlSaviorCampPlayerController>())
+    {
+        Controller->OpenWeaponLoadout();
+    }
 }
 
 // A recoverable request can be retried with the keyboard without navigating again.

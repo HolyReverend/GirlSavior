@@ -9,6 +9,7 @@
 #include "InputKeyEventArgs.h"
 #include "SceneView.h"
 #include "EnhancedInputSubsystems.h"
+#include "EnhancedInputComponent.h"
 #include "EnhancedPlayerInput.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/LocalPlayer.h"
@@ -17,17 +18,87 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGirlSaviorInput, Log, All);
 
+namespace
+{
+	constexpr int32 WeaponSlotCount = 3;
+}
+
 AGirlSaviorPlayerController::AGirlSaviorPlayerController()
 {
 	PlayerCameraManagerClass = AGirlSaviorPlayerCameraManager::StaticClass();
 }
 
+void AGirlSaviorPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+	if (auto* EnhancedInput = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		for (int32 Index = 0; Index < WeaponSlotActions.Num(); ++Index)
+		{
+			if (UInputAction* Action = WeaponSlotActions[Index])
+			{
+				EnhancedInput->BindAction(Action, ETriggerEvent::Started, this, &ThisClass::SelectWeaponSlot, Index);
+			}
+		}
+	}
+}
+
+// Only a successfully bound encounter gives the local player slot input.
+bool AGirlSaviorPlayerController::RegisterWeaponInput()
+{
+	RemoveWeaponInput();
+	TSet<const UInputAction*> UniqueActions;
+	for (const UInputAction* Action : WeaponSlotActions)
+	{
+		if (Action && Action->ValueType == EInputActionValueType::Boolean)
+		{
+			UniqueActions.Add(Action);
+		}
+	}
+	auto* Subsystem = RegisteredInputSubsystem.Get();
+	if (!Subsystem || !Cast<UEnhancedInputComponent>(InputComponent) || !ExpeditionWeaponMappingContext
+		|| WeaponSlotActions.Num() != WeaponSlotCount || UniqueActions.Num() != WeaponSlotCount)
+	{
+		UE_LOG(LogGirlSaviorInput, Error, TEXT("%s: expedition needs a weapon mapping context and three Boolean actions."),
+			*GetPathName());
+		return false;
+	}
+
+	FModifyContextOptions Options;
+	Options.bIgnoreAllPressedKeysUntilRelease = true;
+	Subsystem->AddMappingContext(ExpeditionWeaponMappingContext, 1, Options);
+	RegisteredWeaponMappingContext = ExpeditionWeaponMappingContext;
+	return true;
+}
+
+void AGirlSaviorPlayerController::RemoveWeaponInput()
+{
+	if (auto* Subsystem = RegisteredInputSubsystem.Get(); Subsystem && RegisteredWeaponMappingContext)
+	{
+		Subsystem->RemoveMappingContext(RegisteredWeaponMappingContext);
+	}
+	RegisteredWeaponMappingContext = nullptr;
+}
+
+void AGirlSaviorPlayerController::SelectWeaponSlot(int32 SlotIndex)
+{
+	if (auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn()); Hero && RegisteredWeaponMappingContext)
+	{
+		Hero->GetFireComponent()->TrySelectWeaponSlot(SlotIndex);
+	}
+}
+
 void AGirlSaviorPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-	if (IsLocalController() && Cast<AGirlSaviorCharacter>(GetPawn()))
+	if (auto* Hero = Cast<AGirlSaviorCharacter>(GetPawn()); IsLocalController() && Hero)
 	{
 		RegisterGameplayInput();
+		// A same-frame possession round trip may not be observed by the encounter tick.
+		if (Hero->GetFireComponent()->HasBoundWeaponInput())
+		{
+			RegisterWeaponInput();
+		}
 		// Rebuild area permissions on possession, including a pawn spawned inside a zone.
 		SafeAreas.Empty();
 		TArray<AActor*> Overlaps;
@@ -84,6 +155,7 @@ void AGirlSaviorPlayerController::RegisterGameplayInput()
 
 void AGirlSaviorPlayerController::RemoveGameplayInput()
 {
+	RemoveWeaponInput();
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = RegisteredInputSubsystem.Get())
 	{
 		if (RegisteredMappingContext)

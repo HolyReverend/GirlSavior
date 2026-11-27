@@ -1,12 +1,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Weapons/GirlSaviorWeaponDefinition.h"
 #include "GirlSaviorExpeditionLaunch.generated.h"
 
 class UGirlSaviorSupportAbilityDefinition;
 class UWorld;
 
-// A confirmed draft crosses travel by reference while the URL carries only its unique ID.
+// Committed selections cross travel in a snapshot while the URL carries only the run ID.
 USTRUCT()
 struct GIRLSAVIOR_API FGirlSaviorExpeditionLaunch
 {
@@ -25,10 +26,17 @@ struct GIRLSAVIOR_API FGirlSaviorExpeditionLaunch
     TArray<TObjectPtr<const UGirlSaviorSupportAbilityDefinition>> Abilities;
 
     UPROPERTY(Transient)
+    FGirlSaviorWeaponLoadout WeaponLoadout;
+
+    UPROPERTY(Transient)
+    TArray<FGirlSaviorResolvedWeaponSlot> WeaponSlots;
+
+    UPROPERTY(Transient)
     TSoftObjectPtr<UWorld> CampMap;
 
     UPROPERTY(Transient)
     TSoftObjectPtr<UWorld> ExpeditionMap;
 
     bool ValidateAbilities(FText& OutError) const;
+    bool ValidateWeapons(FText& OutError) const;
 };

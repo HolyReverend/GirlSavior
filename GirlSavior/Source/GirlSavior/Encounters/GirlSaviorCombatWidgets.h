@@ -2,10 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Combat/GirlSaviorFireComponent.h"
 #include "GirlSaviorCombatWidgets.generated.h"
 
 class UBorder;
 class UButton;
+class UCanvasPanel;
+class UHorizontalBox;
+class UImage;
 class UProgressBar;
 class UTextBlock;
 class UVerticalBox;
@@ -18,6 +22,8 @@ class GIRLSAVIOR_API UGirlSaviorCombatVitalsWidget : public UUserWidget
 public:
     void SetVitals(double Health, double HealthLimit, double Barrier, double InitialBarrier);
     void SetDash(const FText& Status, const FLinearColor& Color);
+    void SetWeaponView(const FGirlSaviorWeaponView& InView);
+    const FGirlSaviorWeaponView& GetDisplayedWeaponView() const { return DisplayedWeaponView; }
 
     UFUNCTION(BlueprintPure, Category = "Combat HUD")
     double GetDisplayedHealth() const { return DisplayedHealth; }
@@ -45,6 +51,26 @@ protected:
 
 private:
     void RefreshVitals();
+    void BuildWeaponStrip(UCanvasPanel& Root);
+    void RefreshWeaponStrip();
+
+    UPROPERTY(Transient)
+    FGirlSaviorWeaponView DisplayedWeaponView;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UHorizontalBox> WeaponStrip;
+
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<UBorder>> WeaponSlotFrames;
+
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<UTextBlock>> WeaponActiveMarkers;
+
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<UTextBlock>> WeaponSlotNames;
+
+    UPROPERTY(Transient)
+    TArray<TObjectPtr<UImage>> WeaponSlotIcons;
 
     UPROPERTY(Transient)
     TObjectPtr<UTextBlock> HealthText;

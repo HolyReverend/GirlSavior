@@ -5,6 +5,7 @@
 #include "Encounters/GirlSaviorWavePolicy.h"
 #include "GameFramework/Actor.h"
 #include "SceneView.h"
+#include "Weapons/GirlSaviorWeaponDefinition.h"
 #include "GirlSaviorCombatEncounter.generated.h"
 
 class AGirlSaviorCharacter;
@@ -18,7 +19,9 @@ class AGirlSaviorTestProjectile;
 class UBoxComponent;
 class UGirlSaviorDamageReceiverComponent;
 class UGirlSaviorExpeditionSessionSubsystem;
+class UGirlSaviorFireComponent;
 class UGirlSaviorSupportRun;
+struct FGirlSaviorWeaponShotCue;
 struct FGirlSaviorWaveEntrance;
 
 UENUM(BlueprintType)
@@ -87,6 +90,10 @@ public:
 
     UFUNCTION(BlueprintPure, Category = "Combat")
     AGirlSaviorCharacter* GetHero() const { return Hero.Get(); }
+
+#if !UE_BUILD_SHIPPING
+    bool GiveAllWeaponsForCheat(FText& OutError);
+#endif
 
     UFUNCTION(BlueprintPure, Category = "Combat")
     int32 GetLiveEnemyCount() const { return LiveEnemies.Num(); }
@@ -182,7 +189,9 @@ private:
     bool InitializeRun(APawn& Pawn);
     bool InitializeCombat(AGirlSaviorCharacter& Pawn);
     bool BindHero(AGirlSaviorCharacter& Pawn);
-    void UnbindHero();
+    void UnbindHero(bool bPreserveWeapons = false);
+    void RememberWeaponSelection(int32 SlotIndex);
+    void RememberWeaponDeadline(const FGirlSaviorWeaponShotCue& Cue);
     void EnterCampRecovery(AController* LocalController, const FText& Message);
     UGirlSaviorExpeditionSessionSubsystem* GetExpeditionSession() const;
     void BindAdmission(UGirlSaviorDamageReceiverComponent& Receiver);
@@ -225,6 +234,13 @@ private:
 
     UPROPERTY(Transient)
     TObjectPtr<UGirlSaviorSupportRun> SupportRun;
+
+    UPROPERTY(Transient)
+    TArray<FGirlSaviorResolvedWeaponSlot> RunWeaponSlots;
+
+    TWeakObjectPtr<UGirlSaviorFireComponent> SuspendedFire;
+    int32 RunActiveWeaponIndex = INDEX_NONE;
+    double RunShotDeadline = 0.0;
 
     EGirlSaviorRunState RunState = EGirlSaviorRunState::Waiting;
     double OutcomeVisibleAt = 0.0;

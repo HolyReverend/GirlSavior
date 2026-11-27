@@ -3,10 +3,10 @@
 #include "Camera/GirlSaviorPlayerCameraManager.h"
 #include "Characters/GirlSaviorCharacter.h"
 #include "Characters/GirlSaviorCharacterMovementComponent.h"
-#include "Combat/GirlSaviorCombatPistolSettings.h"
 #include "Combat/GirlSaviorDamageReceiverComponent.h"
 #include "Combat/GirlSaviorFireComponent.h"
 #include "Combat/GirlSaviorTestProjectile.h"
+#include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Core/GirlSaviorPlayerController.h"
 #include "Encounters/GirlSaviorCombatEncounter.h"
@@ -22,6 +22,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "UnrealClient.h"
+#include "Weapons/GirlSaviorWeaponDefinition.h"
 
 namespace
 {
@@ -130,24 +131,25 @@ private:
         EGirlSaviorProjectileCompletion ExpectedReason, double ExpectedDistance, const TCHAR* Label)
     {
         auto* Fire = Hero->GetFireComponent();
-        const auto* Tuning = Fire->CombatPistol.Get();
-        if (!Tuning)
+        const auto* Weapon = Fire->GetConfiguredWeaponDefinition();
+        if (!Weapon)
         {
-            Check(false, TEXT("The saved hero has a pistol tuning asset"));
+            Check(false, TEXT("The saved hero has a configured pistol row"));
             return;
         }
         PlaceHero(Start);
         FGirlSaviorProjectileLaunch Launch;
-        Launch.Radius = Tuning->ProjectileRadius;
-        Launch.Speed = Tuning->ProjectileSpeed;
-        Launch.MaxDistance = Tuning->MaxDistance;
-        Launch.Damage.Physical = Tuning->Damage;
+        Launch.Radius = Weapon->ProjectileRadius;
+        Launch.Speed = Weapon->ProjectileSpeed;
+        Launch.MaxDistance = Weapon->MaxDistance;
+        Launch.Damage.Physical = Weapon->DamagePerProjectile;
+        Launch.Damage.Cause = Weapon->DamageCause;
         Launch.Damage.Origin = Hero->GetActorLocation();
         Launch.Damage.SourceFaction = EGirlSaviorFaction::Hero;
         Launch.Damage.Instigator = Hero.Get();
         Launch.Damage.AttackId = Encounter->AllocateAttackId();
         auto* Shot = AGirlSaviorTestProjectile::SpawnCombatProjectile(
-            *World.Get(), Fire->ProjectileClass, Hero.Get(), Direction, Launch, *Encounter.Get());
+            *World.Get(), Weapon->ProjectileClass, Hero.Get(), Direction, Launch, *Encounter.Get());
         if (!IsValid(Shot))
         {
             Check(false, Label);
@@ -176,6 +178,37 @@ private:
         Lines += FString::Printf(TEXT("Flight at %d Hz covered %.3f cm.\n"), FramesPerSecond, Distance);
         Check(Completions == 1 && Reason == ExpectedReason && FMath::IsNearlyEqual(Distance, ExpectedDistance, 1.5),
             Label);
+    }
+
+    // Place a box so the leading edge of the sphere meets its face exactly at the range limit.
+    void CheckRangeEndpoint(double ExtraDistance, EGirlSaviorProjectileCompletion ExpectedReason, const TCHAR* Label)
+    {
+        const auto* Weapon = Hero->GetFireComponent()->GetConfiguredWeaponDefinition();
+        if (!Weapon)
+        {
+            Check(false, TEXT("The range fixture requires the configured weapon"));
+            return;
+        }
+        auto* Blocker = World->SpawnActor<AActor>();
+        if (!Blocker)
+        {
+            Check(false, TEXT("Spawn an endpoint blocker"));
+            return;
+        }
+        auto* Box = NewObject<UBoxComponent>(Blocker);
+        const FVector Start(1000, -850, 90);
+        constexpr double BoxHalfWidth = 10.0;
+        Blocker->SetRootComponent(Box);
+        Box->SetBoxExtent(FVector(BoxHalfWidth));
+        Box->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+        Box->SetCollisionObjectType(ECC_WorldDynamic);
+        Box->SetCollisionResponseToAllChannels(ECR_Block);
+        Box->SetGenerateOverlapEvents(false);
+        Box->SetWorldLocation(Start + FVector::RightVector
+            * (Weapon->MaxDistance + Weapon->ProjectileRadius + BoxHalfWidth + ExtraDistance));
+        Box->RegisterComponent();
+        CheckFlight(Start, FVector::RightVector, 60, ExpectedReason, Weapon->MaxDistance, Label);
+        Blocker->Destroy();
     }
 
     void Check(bool bPass, const TCHAR* Label)
@@ -314,10 +347,14 @@ private:
         case EPhase::Firing:
             if (!Enemy->GetDamageReceiver()->IsAlive())
             {
-                Check(Enemy->GetDamageReceiver()->GetLastLethalResult().Spec.SourceFaction == EGirlSaviorFaction::Hero
+                const auto& LethalShot = Enemy->GetDamageReceiver()->GetLastLethalResult().Spec;
+                Check(LethalShot.SourceFaction == EGirlSaviorFaction::Hero
                     && Encounter->GetLiveEnemyCount() == InitialLiveEnemies - 1
                     && !Enemy->GetCapsuleComponent()->IsQueryCollisionEnabled(),
                     TEXT("Normal LMB shots kill the Pursuer, unregister it and clear body collision"));
+                Check(LethalShot.WeaponId == TEXT("Pistol") && LethalShot.ShotGroupId > 0
+                    && LethalShot.ShotGroupId == LethalShot.AttackId,
+                    TEXT("The committed pistol damage retains its row and single-projectile discharge identifiers"));
                 Send(EKeys::LeftMouseButton, IE_Released);
                 const auto Range = EGirlSaviorProjectileCompletion::RangeExpired;
                 const auto Impact = EGirlSaviorProjectileCompletion::Impact;
@@ -325,6 +362,8 @@ private:
                     TEXT("Clear flight expires at pistol range at 60 Hz"));
                 CheckFlight(FVector(1000, -850, 90), FVector::RightVector, 15, Range, 1400,
                     TEXT("Clear flight expires at pistol range at 15 Hz"));
+                CheckRangeEndpoint(0.0, Impact, TEXT("Contact at maximum range still impacts"));
+                CheckRangeEndpoint(1.0, Range, TEXT("A blocker beyond range is not hit"));
                 // The tall cover intersects the full sphere, including at capsule-center height.
                 CheckFlight(FVector(-35, 360, 90), FVector::ForwardVector, 15, Impact, 64,
                     TEXT("A long sweep stops on the near face of the cover"));

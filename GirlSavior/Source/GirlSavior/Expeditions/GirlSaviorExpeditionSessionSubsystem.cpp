@@ -9,6 +9,7 @@
 #include "Support/GirlSaviorSupportAbilityDefinition.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectGlobals.h"
+#include "Weapons/GirlSaviorWeaponProfileSubsystem.h"
 
 #define LOCTEXT_NAMESPACE "GirlSaviorExpeditionSession"
 
@@ -62,6 +63,50 @@ bool FGirlSaviorExpeditionLaunch::ValidateAbilities(FText& OutError) const
     return UGirlSaviorSupportAbilityDefinition::ValidatePair(*Abilities[0], *Abilities[1], OutError);
 }
 
+// The destination consumes copies. It can validate them without consulting mutable Camp state.
+bool FGirlSaviorExpeditionLaunch::ValidateWeapons(FText& OutError) const
+{
+    const FName Ids[] = {WeaponLoadout.Slot1, WeaponLoadout.Slot2, WeaponLoadout.Slot3};
+    if (WeaponSlots.Num() != UE_ARRAY_COUNT(Ids))
+    {
+        OutError = LOCTEXT("MissingWeaponSlots", "Данные слотов оружия недоступны.");
+        return false;
+    }
+
+    TSet<FName> Used;
+    for (int32 Index = 0; Index < WeaponSlots.Num(); ++Index)
+    {
+        const auto& Slot = WeaponSlots[Index];
+        if (Slot.WeaponId != Ids[Index] || (!Slot.WeaponId.IsNone() && Used.Contains(Slot.WeaponId)))
+        {
+            OutError = LOCTEXT("MismatchedWeapons", "Данные выбранного оружия изменились.");
+            return false;
+        }
+        if (!Slot.WeaponId.IsNone())
+        {
+            if (!Slot.Row.Validate(OutError))
+            {
+                return false;
+            }
+            Used.Add(Slot.WeaponId);
+        }
+    }
+    if (Used.IsEmpty())
+    {
+        OutError = LOCTEXT("EmptyWeapons", "Выберите хотя бы одно оружие.");
+        return false;
+    }
+    return true;
+}
+
+#if WITH_EDITOR
+void UGirlSaviorExpeditionSessionSubsystem::SetWeaponProfileForTest(UGirlSaviorWeaponProfileSubsystem* Profile)
+{
+    check(!Profile || Profile->GetOuter() == GetGameInstance());
+    WeaponProfileForTest = Profile;
+}
+#endif
+
 // The delegates are global. The handlers match both our game instance and the pending origin.
 void UGirlSaviorExpeditionSessionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -85,6 +130,7 @@ void UGirlSaviorExpeditionSessionSubsystem::Deinitialize()
     LastConfirmedAbilityIds.Reset();
 #if WITH_EDITOR
     NextDispatchForTest = {};
+    WeaponProfileForTest.Reset();
 #endif
     Super::Deinitialize();
 }
@@ -104,6 +150,25 @@ bool UGirlSaviorExpeditionSessionSubsystem::RequestLaunch(UWorld& World, const U
     if (Phase != EPhase::Idle || !OwnsWorld(World) || !MatchesMap(World, Catalog.CampMap))
     {
         OutError = LOCTEXT("LaunchUnavailable", "Сейчас нельзя отправиться на вылазку.");
+        return false;
+    }
+
+    auto* Profile = GetGameInstance()->GetSubsystem<UGirlSaviorWeaponProfileSubsystem>();
+#if WITH_EDITOR
+    if (WeaponProfileForTest.IsValid())
+    {
+        Profile = WeaponProfileForTest.Get();
+    }
+#endif
+    if (!Profile || !IsValid(Catalog.WeaponTable))
+    {
+        OutError = LOCTEXT("WeaponsUnavailable", "Набор оружия недоступен.");
+        return false;
+    }
+    TArray<FGirlSaviorResolvedWeaponSlot> WeaponSlots;
+    if (!Profile->EnsureLoaded(*Catalog.WeaponTable, OutError)
+        || !Profile->ValidateLoadout(*Catalog.WeaponTable, Profile->GetConfirmedLoadout(), WeaponSlots, OutError))
+    {
         return false;
     }
 
@@ -127,6 +192,8 @@ bool UGirlSaviorExpeditionSessionSubsystem::RequestLaunch(UWorld& World, const U
     Launch.MissionId = Draft.GetMissionId();
     Launch.AbilityIds = {First.Ability->AbilityId, Second.Ability->AbilityId};
     Launch.Abilities = {First.Ability, Second.Ability};
+    Launch.WeaponLoadout = Profile->GetConfirmedLoadout();
+    Launch.WeaponSlots = MoveTemp(WeaponSlots);
     Launch.CampMap = Catalog.CampMap;
     Launch.ExpeditionMap = Catalog.ExpeditionMap;
     Phase = EPhase::LaunchPending;
@@ -176,7 +243,8 @@ EGirlSaviorExpeditionClaim UGirlSaviorExpeditionSessionSubsystem::ClaimLaunch(UW
         && FGuid::ParseExact(UGameplayStatics::ParseOption(Options, RunOption), EGuidFormats::DigitsWithHyphens, IncomingId)
         && IncomingId.IsValid() && IncomingId == Launch.RunId;
     FText ValidationError;
-    if (!bTrustedDestination || !bMatchingToken || !Launch.ValidateAbilities(ValidationError))
+    if (!bTrustedDestination || !bMatchingToken || !Launch.ValidateAbilities(ValidationError)
+        || !Launch.ValidateWeapons(ValidationError))
     {
         OutError = LOCTEXT("RejectedClaim", "Не удалось подтвердить данные вылазки.");
         UE_LOG(LogGirlSaviorExpeditionSession, Warning,
@@ -201,7 +269,8 @@ EGirlSaviorExpeditionClaim UGirlSaviorExpeditionSessionSubsystem::ClaimLaunch(UW
 bool UGirlSaviorExpeditionSessionSubsystem::CommitLaunch(UWorld& World, FGuid RunId, FText& OutError)
 {
     if (Phase != EPhase::LaunchPending || ExpeditionWorld.Get() != &World || !OwnsWorld(World)
-        || bTravelFailed || !RunId.IsValid() || Launch.RunId != RunId || !Launch.ValidateAbilities(OutError))
+        || bTravelFailed || !RunId.IsValid() || Launch.RunId != RunId || !Launch.ValidateAbilities(OutError)
+        || !Launch.ValidateWeapons(OutError))
     {
         if (OutError.IsEmpty())
         {

@@ -2,10 +2,10 @@
 
 #include "Characters/GirlSaviorCharacter.h"
 #include "Characters/GirlSaviorCharacterMovementComponent.h"
-#include "Combat/GirlSaviorCombatPistolSettings.h"
 #include "Combat/GirlSaviorDamageReceiverComponent.h"
 #include "Combat/GirlSaviorFireComponent.h"
 #include "Combat/GirlSaviorTestProjectile.h"
+#include "Components/BoxComponent.h"
 #include "Components/Button.h"
 #include "Core/GirlSaviorPlayerController.h"
 #include "Encounters/GirlSaviorCombatEncounter.h"
@@ -15,11 +15,14 @@
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Feedback/GirlSaviorCombatFeedbackPresenter.h"
 #include "Framework/Application/SlateApplication.h"
 #include "HAL/IConsoleManager.h"
 #include "InputKeyEventArgs.h"
 #include "SceneView.h"
 #include "Slate/SceneViewport.h"
+#include "Weapons/GirlSaviorWeaponDefinition.h"
+#include "Weapons/GirlSaviorFirearm.h"
 #include "Widgets/SViewport.h"
 
 namespace
@@ -33,7 +36,9 @@ void RunFeedbackFixture(const TArray<FString>& Args, UWorld* World)
     }
     TActorIterator<AGirlSaviorCombatEncounter> Encounters(World);
     AGirlSaviorCombatEncounter* Encounter = Encounters ? *Encounters : nullptr;
-    auto* Hero = Encounter && Encounter->HasFeedbackPresenter() ? Encounter->GetHero() : nullptr;
+    const FString& Action = Args[0];
+    auto* Hero = Encounter && (Encounter->HasFeedbackPresenter() || Action == TEXT("Slot"))
+        ? Encounter->GetHero() : nullptr;
     auto* Controller = Hero ? Cast<AGirlSaviorPlayerController>(Hero->GetController()) : nullptr;
     if (!Controller)
     {
@@ -42,7 +47,6 @@ void RunFeedbackFixture(const TArray<FString>& Args, UWorld* World)
     const auto* Player = Controller->GetLocalPlayer();
     UGameViewportClient* Client = Player ? Player->ViewportClient.Get() : nullptr;
     FViewport* Viewport = Client ? Client->Viewport : nullptr;
-    const FString& Action = Args[0];
     if (Action == TEXT("Viewport") && Client && Args.Num() == 3)
     {
         if (auto* Scene = Client->GetGameViewport())
@@ -103,8 +107,72 @@ void RunFeedbackFixture(const TArray<FString>& Args, UWorld* World)
             Event, FPlatformTime::Cycles64()));
         return;
     }
+    if (Action == TEXT("Slot") && Args.Num() == 3 && Viewport)
+    {
+        const FKey Keys[] = {EKeys::One, EKeys::Two, EKeys::Three};
+        const int32 Index = FCString::Atoi(*Args[1]) - 1;
+        if (Index >= 0 && Index < UE_ARRAY_COUNT(Keys))
+        {
+            const EInputEvent Event = Args[2] == TEXT("Down") ? IE_Pressed : IE_Released;
+            Controller->InputKey(FInputKeyEventArgs(Viewport, INPUTDEVICEID_NONE, Keys[Index],
+                Event, FPlatformTime::Cycles64()));
+        }
+        return;
+    }
     if (Encounter->GetRunState() != EGirlSaviorRunState::Active)
     {
+        return;
+    }
+    if (Action == TEXT("VolleyWall"))
+    {
+        const TActorIterator<AGirlSaviorCombatFeedbackPresenter> Presenters(World);
+        auto* Presenter = Presenters ? *Presenters : nullptr;
+        auto* Fire = Hero->GetFireComponent();
+        const auto* Weapon = Fire->GetConfiguredWeaponDefinition();
+        if (!Presenter || !Weapon)
+        {
+            return;
+        }
+        // Force five synchronous spawn-time contacts with the same temporary blocker.
+        auto* Blocker = World->SpawnActor<AActor>();
+        if (!Blocker)
+        {
+            return;
+        }
+        auto* Box = NewObject<UBoxComponent>(Blocker);
+        Blocker->SetRootComponent(Box);
+        Box->SetBoxExtent(FVector(22));
+        Box->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+        Box->SetCollisionObjectType(ECC_WorldDynamic);
+        Box->SetCollisionResponseToAllChannels(ECR_Block);
+        Box->SetGenerateOverlapEvents(false);
+        Box->SetWorldLocation(Hero->GetActorLocation());
+        Box->RegisterComponent();
+        const int32 GeometryBefore = Presenter->GetCueCount(EGirlSaviorFeedbackCue::Geometry);
+        const int32 LiveBefore = Encounter->GetLiveProjectileCount();
+        const int64 GroupId = Encounter->AllocateAttackId();
+        FGirlSaviorProjectileLaunch Launch;
+        Launch.Radius = Weapon->ProjectileRadius;
+        Launch.Speed = Weapon->ProjectileSpeed;
+        Launch.MaxDistance = Weapon->MaxDistance;
+        Launch.Damage.Physical = Weapon->DamagePerProjectile;
+        Launch.Damage.SourceFaction = EGirlSaviorFaction::Hero;
+        Launch.Damage.WeaponId = Fire->GetWeaponSlotId(Fire->GetActiveWeaponSlot());
+        Launch.Damage.ShotGroupId = GroupId;
+        Launch.Damage.Instigator = Hero;
+        Launch.Damage.Origin = Hero->GetActorLocation();
+        int32 Count = 0;
+        for (const float Angle : {-12.f, -6.f, 0.f, 6.f, 12.f})
+        {
+            Launch.Damage.AttackId = Encounter->AllocateAttackId();
+            const auto Direction = FVector::ForwardVector.RotateAngleAxis(Angle, FVector::UpVector);
+            Count += AGirlSaviorTestProjectile::SpawnCombatProjectile(*World, Weapon->ProjectileClass,
+                Hero, Direction, Launch, *Encounter) != nullptr;
+        }
+        const int32 Geometry = Presenter->GetCueCount(EGirlSaviorFeedbackCue::Geometry) - GeometryBefore;
+        const bool bPassed = Count == 5 && Geometry == 1 && Encounter->GetLiveProjectileCount() == LiveBefore;
+        UE_LOG(LogTemp, Display, TEXT("W4 VOLLEY %s projectiles=%d geometry=%d"), bPassed ? TEXT("PASS") : TEXT("FAIL"), Count, Geometry);
+        Blocker->Destroy();
         return;
     }
     if (Action == TEXT("Hit") || Action == TEXT("Dash"))
@@ -128,31 +196,35 @@ void RunFeedbackFixture(const TArray<FString>& Args, UWorld* World)
     if (Action == TEXT("Shot") && Args.Num() == 3)
     {
         auto* Fire = Hero->GetFireComponent();
-        const auto* Settings = Fire->CombatPistol.Get();
-        if (!Settings)
+        const auto* Weapon = Fire->GetConfiguredWeaponDefinition();
+        if (!Weapon)
         {
             return;
         }
         FGirlSaviorProjectileLaunch Launch;
-        Launch.Radius = Settings->ProjectileRadius;
-        Launch.Speed = Settings->ProjectileSpeed;
-        Launch.MaxDistance = Settings->MaxDistance;
-        Launch.Damage.Physical = Settings->Damage;
+        Launch.Radius = Weapon->ProjectileRadius;
+        Launch.Speed = Weapon->ProjectileSpeed;
+        Launch.MaxDistance = Weapon->MaxDistance;
+        Launch.Damage.Physical = Weapon->DamagePerProjectile;
+        Launch.Damage.Cause = Weapon->DamageCause;
         Launch.Damage.SourceFaction = EGirlSaviorFaction::Hero;
         Launch.Damage.SourceId = TEXT("CP4.PIE.Pistol");
         Launch.Damage.Instigator = Hero;
         Launch.Damage.AttackId = Encounter->AllocateAttackId();
+        Launch.Damage.ShotGroupId = Launch.Damage.AttackId;
+        Launch.Damage.WeaponId = Fire->GetWeaponSlotId(Fire->GetActiveWeaponSlot());
         Launch.Damage.Origin = Hero->GetActorLocation();
         const FVector Direction = FVector(FCString::Atod(*Args[1]), FCString::Atod(*Args[2]), 0).GetSafeNormal();
-        if (AGirlSaviorTestProjectile::SpawnCombatProjectile(*World, Fire->ProjectileClass, Hero, Direction, Launch, *Encounter))
+        if (AGirlSaviorTestProjectile::SpawnCombatProjectile(*World, Weapon->ProjectileClass, Hero, Direction, Launch, *Encounter))
         {
-            Fire->PublishShotCue(Launch.Damage.Origin, Direction);
+            Fire->OnWeaponShot.Broadcast({Launch.Damage.WeaponId, Launch.Damage.ShotGroupId,
+                Launch.Damage.Origin, Direction, Weapon->Presentation});
         }
     }
 }
 
 FAutoConsoleCommandWithWorldAndArgs FeedbackFixtureCommand(TEXT("GirlSavior.TestFeedback"),
-    TEXT("CP4 PIE stimuli: Viewport W H, MeasureView, Focus, Aim X Y, Fire or Move Down/Up, Hit N, Dash, Shot Dx Dy, Retry."),
+    TEXT("Combat PIE stimuli: Viewport W H, MeasureView, Focus, Aim X Y, Fire or Move Down/Up, Slot N Down/Up, Hit N, Dash, Shot Dx Dy, VolleyWall, Retry."),
     FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&RunFeedbackFixture));
 }
 

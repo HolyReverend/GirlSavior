@@ -72,7 +72,8 @@ void UGirlSaviorSupportRun::NotifyHeroWeaponDamage(AGirlSaviorEnemyCharacter& En
     const FGirlSaviorDamageResult& Result)
 {
     if (!bDispatchOpen || Result.Outcome != EGirlSaviorDamageOutcome::Applied || Result.bKilled
-        || Result.Spec.SourceFaction != EGirlSaviorFaction::Hero || Result.Spec.SourceId != TEXT("Hero.Pistol")
+        || Result.Spec.SourceFaction != EGirlSaviorFaction::Hero
+        || Result.Spec.WeaponId.IsNone() || Result.Spec.ShotGroupId <= 0
         || Result.Spec.Delivery != EGirlSaviorDamageDelivery::DirectProjectile
         || Result.HealthLost + Result.BarrierLost <= 0.0 || !Enemy.GetDamageReceiver()->IsAlive())
     {

@@ -10,6 +10,7 @@ class AGirlSaviorCharacter;
 class UGirlSaviorCombatOutcomeWidget;
 class UGirlSaviorCombatVitalsWidget;
 class UGirlSaviorDamageReceiverComponent;
+class UGirlSaviorFireComponent;
 enum class EGirlSaviorRunState : uint8;
 struct FGirlSaviorDamageResult;
 
@@ -45,6 +46,8 @@ private:
     void BindHero(AGirlSaviorCharacter* Hero);
     void CacheDashDeadline();
     void RefreshDash();
+    void RefreshWeaponView();
+    void HandleWeaponChanged(int32 ActiveIndex);
     void RefreshOutcome();
     void FocusOutcome();
     void HandleBarrierChanged();
@@ -72,6 +75,7 @@ private:
     TWeakObjectPtr<AGirlSaviorCombatEncounter> Encounter;
     TWeakObjectPtr<AGirlSaviorCharacter> BoundHero;
     TWeakObjectPtr<UGirlSaviorDamageReceiverComponent> Receiver;
+    TWeakObjectPtr<UGirlSaviorFireComponent> FireComponent;
     double DashReadyTime = 0.0;
     EDashReadout DashReadout = EDashReadout::Unset;
     int32 DashCooldownTenths = 0;

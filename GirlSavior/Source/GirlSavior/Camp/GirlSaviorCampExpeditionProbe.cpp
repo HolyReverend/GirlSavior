@@ -34,6 +34,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Paths.h"
 #include "UnrealClient.h"
+#include "Weapons/GirlSaviorWeaponDefinition.h"
 #include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 
@@ -356,6 +357,12 @@ private:
     bool PistolHit(UWorld& World, AGirlSaviorCombatEncounter& Encounter, AGirlSaviorCharacter& Hero,
         AGirlSaviorEnemyCharacter& Enemy)
     {
+        const auto* Weapon = Hero.GetFireComponent()->GetConfiguredWeaponDefinition();
+        if (!Weapon)
+        {
+            return false;
+        }
+
         auto* Receiver = Enemy.GetDamageReceiver();
         const double HealthBefore = Receiver->GetHealth();
         const double BarrierBefore = Receiver->GetBarrier();
@@ -371,14 +378,16 @@ private:
             Launch.Damage.Physical = 2.f;
             Launch.Damage.SourceFaction = EGirlSaviorFaction::Hero;
             Launch.Damage.SourceId = TEXT("Hero.Pistol");
+            Launch.Damage.WeaponId = TEXT("Pistol");
             Launch.Damage.Instigator = &Hero;
             Launch.Damage.AttackId = Encounter.AllocateAttackId();
+            Launch.Damage.ShotGroupId = Launch.Damage.AttackId;
             Launch.Damage.Origin = Center - Direction * 110.f;
             if (Encounter.IsPointInSafeArea(Launch.Damage.Origin))
             {
                 continue;
             }
-            auto* Shot = AGirlSaviorTestProjectile::SpawnCombatProjectile(World, Hero.GetFireComponent()->ProjectileClass,
+            auto* Shot = AGirlSaviorTestProjectile::SpawnCombatProjectile(World, Weapon->ProjectileClass,
                 &Hero, Direction, Launch, Encounter);
             for (int32 Frame = 0; Frame < 12 && IsValid(Shot); ++Frame)
             {
@@ -427,7 +436,7 @@ private:
         CueFire = Fire;
         ShotTimes.Reset();
         const TWeakObjectPtr<UWorld> CueWorld(Hero.GetWorld());
-        CueHandle = Fire->OnCombatShotCue.AddLambda([this, CueWorld](FVector, FVector)
+        CueHandle = Fire->OnWeaponShot.AddLambda([this, CueWorld](const FGirlSaviorWeaponShotCue&)
         {
             if (const auto* World = CueWorld.Get())
             {
@@ -444,7 +453,7 @@ private:
         if (auto* Fire = CueFire.Get())
         {
             Fire->CancelFireSeries();
-            Fire->OnCombatShotCue.Remove(CueHandle);
+            Fire->OnWeaponShot.Remove(CueHandle);
         }
         CueFire.Reset();
         CueHandle.Reset();
